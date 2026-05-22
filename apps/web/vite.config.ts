@@ -1,0 +1,79 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
+import path from "node:path";
+
+const workspaceRoot = path.resolve(__dirname, "../..");
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: false,                   // we register manually in pwa-register.ts
+      strategies: "generateSW",
+      // We ship the manifest in /public so we don't double-emit it. Tell the
+      // plugin to skip its own manifest emission.
+      manifest: false,
+      workbox: {
+        // App shell + design + icons.
+        globPatterns: [
+          "**/*.{js,css,html,svg,png,ico,woff2}",
+        ],
+        // Don't cache the API; we never want stale data.
+        navigateFallback: "/offline.html",
+        navigateFallbackDenylist: [/^\/api\//, /^\/@/],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
+            handler: "NetworkOnly",
+          },
+          {
+            urlPattern: ({ request }) => request.destination === "image",
+            handler: "CacheFirst",
+            options: {
+              cacheName: "crestly-images",
+              expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          },
+          {
+            urlPattern: ({ request }) => request.destination === "script" || request.destination === "style",
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "crestly-assets" },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === "https://fonts.gstatic.com",
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-files",
+              expiration: { maxEntries: 30, maxAgeSeconds: 365 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+      devOptions: {
+        // Disabled to keep dev fast; uncomment to test SW locally.
+        enabled: false,
+      },
+    }),
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      "@crestly/shared": path.resolve(workspaceRoot, "packages/shared/src/index.ts"),
+      "@crestly/icons": path.resolve(workspaceRoot, "packages/icons/src/index.tsx"),
+      "@crestly/design": path.resolve(workspaceRoot, "packages/design/src/index.ts"),
+    },
+  },
+  server: {
+    port: 5173,
+    fs: { allow: [workspaceRoot] },
+    proxy: {
+      "/api": { target: "http://localhost:4000", changeOrigin: true },
+    },
+  },
+  optimizeDeps: {
+    exclude: ["@crestly/shared", "@crestly/icons", "@crestly/design"],
+  },
+});

@@ -1,0 +1,29 @@
+node_modules
+dist
+build
+.next
+.turbo
+.cache
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editor
+.vscode/*
+!.vscode/settings.json
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma generated
+apps/api/prisma/generated
