@@ -53,11 +53,25 @@ export const TeamListQuerySchema = z.object({
 });
 export type TeamListQuery = z.infer<typeof TeamListQuerySchema>;
 
+export const TeamDepartmentCountSchema = z.object({
+  department: z.string(),
+  count: z.number().int().nonnegative(),
+});
+export type TeamDepartmentCount = z.infer<typeof TeamDepartmentCountSchema>;
+
 export const TeamListResponseSchema = z.object({
   items: z.array(TeamMemberSchema),
   total: z.number().int().nonnegative(),
   page: z.number().int().positive(),
   pageSize: z.number().int().positive(),
+  /** Active / inactive totals across ALL users (not just the page). */
+  totalActive: z.number().int().nonnegative(),
+  totalInactive: z.number().int().nonnegative(),
+  /** Distinct departments with active member counts — feeds the
+   *  department-pill row + the dropdown. */
+  departments: z.array(TeamDepartmentCountSchema),
+  /** Total distinct roles in the system — feeds the "Roles" stat tile. */
+  rolesCount: z.number().int().nonnegative(),
 });
 export type TeamListResponse = z.infer<typeof TeamListResponseSchema>;
 

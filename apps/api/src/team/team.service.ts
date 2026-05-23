@@ -24,7 +24,7 @@ export class TeamService {
       ...(query.roleSlug && { role: { slug: query.roleSlug } }),
     };
 
-    const [total, rows] = await Promise.all([
+    const [total, rows, totalActive, totalInactive, deptCounts, rolesCount] = await Promise.all([
       this.prisma.db.user.count({ where }),
       this.prisma.db.user.findMany({
         where,
@@ -33,13 +33,30 @@ export class TeamService {
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
+      this.prisma.db.user.count({ where: { status: "active" } }),
+      this.prisma.db.user.count({ where: { status: "inactive" } }),
+      this.prisma.db.user.groupBy({
+        by: ["department"],
+        where: { status: "active", department: { not: null } },
+        _count: { _all: true },
+        orderBy: { department: "asc" },
+      }),
+      this.prisma.db.role.count(),
     ]);
+
+    const departments = deptCounts
+      .filter((d): d is { department: string; _count: { _all: number } } => d.department !== null)
+      .map((d) => ({ department: d.department, count: d._count._all }));
 
     return {
       items: rows.map(toDto),
       total,
       page: query.page,
       pageSize: query.pageSize,
+      totalActive,
+      totalInactive,
+      departments,
+      rolesCount,
     };
   }
 
