@@ -62,4 +62,11 @@ export class FeesController {
   ) {
     return this.fees.voidPayment(id, body.reason ?? null, user);
   }
+
+  /** Manual "send WhatsApp fee reminder" trigger. */
+  @Post("student/:srNumber/reminder")
+  @RequirePerm("fees.manage")
+  sendFeeReminder(@Param("srNumber", ParseIntPipe) srNumber: number) {
+    return this.fees.sendFeeReminder(srNumber);
+  }
 }

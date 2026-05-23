@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import type { Prisma } from "@prisma/client";
 import { RequestPrismaService } from "../prisma/request-prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { WhatsappEvents } from "../whatsapp/events.service";
 import type {
   Voucher, VoucherApproveInput, VoucherCreateInput,
   VoucherListQuery, VoucherListResponse, VoucherMarkPaidInput,
@@ -13,6 +14,7 @@ export class VouchersService {
   constructor(
     private readonly prisma: RequestPrismaService,
     private readonly uploads: UploadsService,
+    private readonly wa: WhatsappEvents,
   ) {}
 
   async attach(
@@ -151,6 +153,12 @@ export class VouchersService {
       },
       include: this.includeFull(),
     });
+
+    // Notify each pending approver on WhatsApp.
+    if (created.status === "pending_approval") {
+      void this.wa.voucherPendingApproval(created.id);
+    }
+
     return toDto(created);
   }
 
@@ -256,6 +264,10 @@ export class VouchersService {
         paid_at: new Date(),
       },
     });
+
+    // Ping the recipient (and the voucher creator if no recipient) on WhatsApp.
+    void this.wa.voucherPaid(id);
+
     return this.findOne(id, user);
   }
 

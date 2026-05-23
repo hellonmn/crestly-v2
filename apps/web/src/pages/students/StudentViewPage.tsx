@@ -4,7 +4,10 @@ import { PageHead } from "@/components/PageHead";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import { useStudentDetail } from "./hooks";
+import { useSendFeeReminder } from "@/pages/fee-ledger/hooks";
 import { useAuth } from "@/lib/auth-store";
+import { getErrorMessage } from "@/lib/api";
+import { useState } from "react";
 import type { StudentDetail, StudentFeeBreakdown } from "@crestly/shared";
 
 /* ============================================================
@@ -514,6 +517,20 @@ function FeeSummaryCard({
   feePillClass: string;
   feePillLabel: string;
 }) {
+  const reminder = useSendFeeReminder(sr);
+  const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  async function onSendReminder() {
+    setFlash(null);
+    try {
+      const r = await reminder.mutateAsync();
+      setFlash({ ok: true, msg: `WhatsApp reminder queued for ₹${r.due.toLocaleString("en-IN")}.` });
+    } catch (e) {
+      setFlash({ ok: false, msg: getErrorMessage(e, "Couldn't send reminder") });
+    }
+    setTimeout(() => setFlash(null), 4000);
+  }
+
   return (
     <div className="card">
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
@@ -547,10 +564,31 @@ function FeeSummaryCard({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
         <Link to={`/fee-ledger/student/${sr}`} className="btn btn--success btn--sm">Record payment</Link>
         <Link to={`/fee-ledger?q=${sr}`} className="btn btn--ghost btn--sm">Open ledger →</Link>
+        {fees.dueAmount > 0 && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={onSendReminder}
+            disabled={reminder.isPending}
+            title="Sends the fee.reminder WhatsApp template to the parent"
+          >
+            <Icon name="msg" size={14} />
+            {" "}{reminder.isPending ? "Sending…" : "WhatsApp reminder"}
+          </button>
+        )}
       </div>
+
+      {flash && (
+        <div
+          className={`banner banner--${flash.ok ? "success" : "error"}`}
+          style={{ marginTop: 12 }}
+        >
+          <Icon name={flash.ok ? "check" : "alert"} size={14} /><span>{flash.msg}</span>
+        </div>
+      )}
     </div>
   );
 }

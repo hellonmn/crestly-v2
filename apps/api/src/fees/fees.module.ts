@@ -4,9 +4,10 @@ import { FeesService } from "./fees.service";
 import { FeeStructureController } from "./fee-structure.controller";
 import { FeeStructureService } from "./fee-structure.service";
 import { SessionsModule } from "../sessions/sessions.module";
+import { WhatsappModule } from "../whatsapp/whatsapp.module";
 
 @Module({
-  imports: [SessionsModule],
+  imports: [SessionsModule, WhatsappModule],
   controllers: [FeesController, FeeStructureController],
   providers: [FeesService, FeeStructureService],
 })

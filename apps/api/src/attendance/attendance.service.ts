@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { RequestPrismaService } from "../prisma/request-prisma.service";
 import { SessionsService } from "../sessions/sessions.service";
+import { WhatsappEvents } from "../whatsapp/events.service";
 import type {
   AttendanceBulk,
   AttendanceHistoryResponse,
@@ -16,6 +17,7 @@ export class AttendanceService {
   constructor(
     private readonly prisma: RequestPrismaService,
     private readonly sessions: SessionsService,
+    private readonly wa: WhatsappEvents,
   ) {}
 
   async roster(query: AttendanceRosterQuery): Promise<AttendanceRosterResponse> {
@@ -66,6 +68,10 @@ export class AttendanceService {
   async mark(input: AttendanceMark, user: CurrentUser): Promise<{ ok: true }> {
     const session = await this.sessions.current();
     const date = new Date(input.date);
+    const prior = await this.prisma.db.attendance.findUnique({
+      where: { sr_number_attendance_date: { sr_number: input.srNumber, attendance_date: date } },
+      select: { status: true },
+    });
     await this.prisma.db.attendance.upsert({
       where: { sr_number_attendance_date: { sr_number: input.srNumber, attendance_date: date } },
       update: {
@@ -83,12 +89,29 @@ export class AttendanceService {
         marked_by: user.name,
       },
     });
+
+    // Only fire student.absent when this mark actually FLIPS the row to
+    // absent (avoids double-firing on a re-save with the same status).
+    if (input.status === "absent" && prior?.status !== "absent") {
+      void this.wa.studentAbsent({ srNumber: input.srNumber, date: input.date });
+    }
+
     return { ok: true };
   }
 
   async bulkMark(input: AttendanceBulk, user: CurrentUser): Promise<{ ok: true; count: number }> {
     const session = await this.sessions.current();
     const date = new Date(input.date);
+
+    // Prior statuses for the rows we're about to upsert — used to suppress
+    // duplicate WhatsApp pings on a no-op re-save.
+    const srs = input.marks.map((m) => m.srNumber);
+    const priorRows = await this.prisma.db.attendance.findMany({
+      where: { sr_number: { in: srs }, attendance_date: date },
+      select: { sr_number: true, status: true },
+    });
+    const priorBySr = new Map(priorRows.map((r) => [r.sr_number, r.status as string]));
+
     for (const m of input.marks) {
       await this.prisma.db.attendance.upsert({
         where: { sr_number_attendance_date: { sr_number: m.srNumber, attendance_date: date } },
@@ -107,7 +130,12 @@ export class AttendanceService {
           marked_by: user.name,
         },
       });
+
+      if (m.status === "absent" && priorBySr.get(m.srNumber) !== "absent") {
+        void this.wa.studentAbsent({ srNumber: m.srNumber, date: input.date });
+      }
     }
+
     return { ok: true, count: input.marks.length };
   }
 

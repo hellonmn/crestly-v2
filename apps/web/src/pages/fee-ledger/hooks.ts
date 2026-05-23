@@ -67,3 +67,11 @@ export function useVoidPayment(srNumber: number) {
     },
   });
 }
+
+/** Manually triggers the fee.reminder WhatsApp template for a student. */
+export function useSendFeeReminder(srNumber: number) {
+  return useMutation({
+    mutationFn: async () =>
+      (await api.post<{ ok: true; due: number }>(`/fees/student/${srNumber}/reminder`)).data,
+  });
+}

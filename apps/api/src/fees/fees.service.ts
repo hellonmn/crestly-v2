@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from "@nestjs/comm
 import type { Prisma } from "@prisma/client";
 import { RequestPrismaService } from "../prisma/request-prisma.service";
 import { SessionsService } from "../sessions/sessions.service";
+import { WhatsappEvents } from "../whatsapp/events.service";
 import type {
   FeeLedgerQuery,
   FeeLedgerResponse,
@@ -19,6 +20,7 @@ export class FeesService {
   constructor(
     private readonly prisma: RequestPrismaService,
     private readonly sessions: SessionsService,
+    private readonly wa: WhatsappEvents,
   ) {}
 
   async list(query: FeeLedgerQuery): Promise<FeeLedgerResponse> {
@@ -374,7 +376,38 @@ export class FeesService {
       }),
     ]);
 
+    // Fire-and-forget WhatsApp receipt to the parent. Never blocks the
+    // user-facing action — dispatcher silently logs success/failure.
+    void this.wa.feePaymentReceived({
+      srNumber,
+      receiptNo,
+      amount: input.amount,
+      paidOn: input.paidOn,
+      method: input.method,
+      remainingDue: fee.dueAmount - input.amount,
+    });
+
     return this.studentDetail(srNumber, session.code);
+  }
+
+  /** Manual "send fee reminder" trigger from the student profile / fee
+   *  ledger. Looks up the current outstanding and fires the
+   *  fee.reminder template. */
+  async sendFeeReminder(srNumber: number): Promise<{ ok: true; due: number }> {
+    const session = await this.sessions.current();
+    const fee = await this.prisma.db.studentFee.findUnique({
+      where: { srNumber_sessionCode: { srNumber, sessionCode: session.code } },
+    });
+    if (!fee) throw new NotFoundException(`No fee allotment for student #${srNumber}`);
+    if (fee.dueAmount <= 0) {
+      throw new BadRequestException("This student has no outstanding balance.");
+    }
+    void this.wa.feeReminder({
+      srNumber,
+      dueAmount: fee.dueAmount,
+      sessionCode: session.code,
+    });
+    return { ok: true, due: fee.dueAmount };
   }
 
   async voidPayment(paymentId: number, reason: string | null, user: CurrentUser) {
