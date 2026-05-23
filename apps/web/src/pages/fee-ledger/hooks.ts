@@ -3,6 +3,9 @@ import { api } from "@/lib/api";
 import type {
   FeeLedgerQuery,
   FeeLedgerResponse,
+  ReceiptListQuery,
+  ReceiptListResponse,
+  ReceiptPrint,
   RecordPaymentInput,
   StudentFeeDetail,
 } from "@crestly/shared";
@@ -13,6 +16,23 @@ export function useFeeLedger(query: Partial<FeeLedgerQuery>) {
   return useQuery({
     queryKey: [...KEY, "ledger", query],
     queryFn: async () => (await api.get<FeeLedgerResponse>("/fees", { params: query })).data,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useReceipts(query: Partial<ReceiptListQuery>) {
+  return useQuery({
+    queryKey: [...KEY, "receipts", query],
+    queryFn: async () => (await api.get<ReceiptListResponse>("/fees/receipts", { params: query })).data,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useReceiptDetail(paymentId: number | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "receipt", paymentId],
+    enabled: paymentId !== undefined && !Number.isNaN(paymentId),
+    queryFn: async () => (await api.get<ReceiptPrint>(`/fees/payment/${paymentId}/receipt`)).data,
   });
 }
 

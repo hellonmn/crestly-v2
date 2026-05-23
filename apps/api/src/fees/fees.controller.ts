@@ -1,11 +1,12 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UsePipes } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from "@nestjs/common";
 import { FeesService } from "./fees.service";
 import { RequirePerm } from "../auth/require-perm.decorator";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ZodPipe } from "../common/zod.pipe";
-import { FeeLedgerQuerySchema, RecordPaymentSchema } from "@crestly/shared";
+import { FeeLedgerQuerySchema, ReceiptListQuerySchema, RecordPaymentSchema } from "@crestly/shared";
 import type {
   FeeLedgerQuery,
+  ReceiptListQuery,
   RecordPaymentInput,
   CurrentUser as User,
 } from "@crestly/shared";
@@ -21,6 +22,19 @@ export class FeesController {
   @RequirePerm("fees.view")
   list(@Query(new ZodPipe(FeeLedgerQuerySchema)) query: FeeLedgerQuery) {
     return this.fees.list(query);
+  }
+
+  @Get("receipts")
+  @RequirePerm("fees.view")
+  receipts(@Query(new ZodPipe(ReceiptListQuerySchema)) query: ReceiptListQuery) {
+    return this.fees.receipts(query);
+  }
+
+  /** Single receipt payload for the A5 print page. */
+  @Get("payment/:id/receipt")
+  @RequirePerm("fees.view")
+  receiptDetail(@Param("id", ParseIntPipe) id: number) {
+    return this.fees.receiptDetail(id);
   }
 
   @Get("student/:srNumber")

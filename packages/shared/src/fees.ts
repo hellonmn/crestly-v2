@@ -22,15 +22,30 @@ export const FeeLedgerRowSchema = z.object({
 });
 export type FeeLedgerRow = z.infer<typeof FeeLedgerRowSchema>;
 
+/**
+ * Status filter accepts an extra "with_balance" pseudo-state that matches
+ * any student whose `due_amount > 0` regardless of payment_status — mirrors
+ * the PHP filter dropdown.
+ */
+export const FeeLedgerStatusFilterSchema = z.enum([
+  "paid", "partial", "pending", "overdue", "with_balance",
+]);
+export type FeeLedgerStatusFilter = z.infer<typeof FeeLedgerStatusFilterSchema>;
+
+export const FeeLedgerSortSchema = z.enum([
+  "due_desc", "due_asc", "name_asc", "class_asc", "paid_desc",
+]);
+export type FeeLedgerSort = z.infer<typeof FeeLedgerSortSchema>;
+
 export const FeeLedgerQuerySchema = z.object({
   q: z.string().optional(),
   class: z.string().optional(),
   section: z.string().optional(),
-  status: FeePaymentStatusSchema.optional(),
+  status: FeeLedgerStatusFilterSchema.optional(),
   sessionCode: z.string().optional(),       // defaults to current
-  sort: z.enum(["due_desc", "due_asc", "name", "class"]).default("due_desc"),
+  sort: FeeLedgerSortSchema.default("class_asc"),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(500).default(100),
+  pageSize: z.coerce.number().int().min(1).max(500).default(50),
 });
 export type FeeLedgerQuery = z.infer<typeof FeeLedgerQuerySchema>;
 
@@ -39,14 +54,20 @@ export const FeeLedgerResponseSchema = z.object({
   total: z.number().int(),
   page: z.number().int(),
   pageSize: z.number().int(),
+  sessionCode: z.string(),
   // KPIs across the filter set
   collected: z.number().int(),
   outstanding: z.number().int(),
   overdueCount: z.number().int(),
   fullyPaidCount: z.number().int(),
+  withBalanceCount: z.number().int(),
   sessionTotal: z.number().int(),
   sessionPaid: z.number().int(),
   sessionDue: z.number().int(),
+  // Distinct values for filter selects (driven by students, not student_fees,
+  // so empty classes still show up).
+  classes: z.array(z.string()),
+  sections: z.array(z.string()),
 });
 export type FeeLedgerResponse = z.infer<typeof FeeLedgerResponseSchema>;
 
@@ -111,6 +132,93 @@ export const RecordPaymentSchema = z.object({
   notes: z.string().max(255).nullable().optional(),
 });
 export type RecordPaymentInput = z.infer<typeof RecordPaymentSchema>;
+
+/* ------------------------------------------------------------------ */
+/* All receipts list — drives /fee-ledger/receipts                     */
+/* ------------------------------------------------------------------ */
+
+export const ReceiptListQuerySchema = z.object({
+  q: z.string().optional(),
+  sessionCode: z.string().optional(),    // defaults to current
+  method: FeePaymentMethodSchema.optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  showVoided: z.coerce.boolean().default(false),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(500).default(50),
+});
+export type ReceiptListQuery = z.infer<typeof ReceiptListQuerySchema>;
+
+export const ReceiptRowSchema = z.object({
+  id: z.number().int(),
+  receiptNo: z.string(),
+  srNumber: z.number().int(),
+  studentName: z.string(),
+  class: z.string(),
+  section: z.string(),
+  isHostel: z.boolean(),
+  amount: z.number().int(),
+  paidOn: z.string(),
+  method: FeePaymentMethodSchema,
+  reference: z.string().nullable(),
+  notes: z.string().nullable(),
+  recordedBy: z.string().nullable(),
+  isVoided: z.boolean(),
+  voidedAt: z.string().nullable(),
+});
+export type ReceiptRow = z.infer<typeof ReceiptRowSchema>;
+
+export const ReceiptListResponseSchema = z.object({
+  items: z.array(ReceiptRowSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  sessionCode: z.string(),
+  /** Sum of `amount` across the filter set (not just the current page). */
+  totalAmount: z.number().int(),
+  /** Today's totals for the same session (separate from the filter set). */
+  todayCount: z.number().int(),
+  todayAmount: z.number().int(),
+  /** Distinct sessions that have any payments — for the dropdown. */
+  sessions: z.array(z.string()),
+});
+export type ReceiptListResponse = z.infer<typeof ReceiptListResponseSchema>;
+
+/* ------------------------------------------------------------------ */
+/* Receipt print payload — drives the A5 landscape two-up print page  */
+/* ------------------------------------------------------------------ */
+
+export const ReceiptPrintSchema = z.object({
+  id: z.number().int(),
+  receiptNo: z.string(),
+  sessionCode: z.string(),
+  amount: z.number().int(),
+  paidOn: z.string(),
+  method: FeePaymentMethodSchema,
+  reference: z.string().nullable(),
+  notes: z.string().nullable(),
+  recordedBy: z.string().nullable(),
+  isVoided: z.boolean(),
+  voidedReason: z.string().nullable(),
+  createdAt: z.string(),
+  // Student
+  srNumber: z.number().int(),
+  studentName: z.string(),
+  class: z.string(),
+  section: z.string(),
+  fatherName: z.string().nullable(),
+  motherName: z.string().nullable(),
+  isHostel: z.boolean(),
+  // Running totals (from student_fees row for the same session)
+  totalThisYear: z.number().int(),
+  totalPaid: z.number().int(),
+  totalDue: z.number().int(),
+  // School identity (from school_info)
+  schoolName: z.string(),
+  schoolAddress: z.string().nullable(),
+  schoolBoard: z.string().nullable(),
+});
+export type ReceiptPrint = z.infer<typeof ReceiptPrintSchema>;
 
 // --- Fee structure ---
 

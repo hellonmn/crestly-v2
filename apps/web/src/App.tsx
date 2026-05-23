@@ -40,6 +40,8 @@ import { AttendancePage } from "@/pages/attendance/AttendancePage";
 import { AttendanceHistoryPage } from "@/pages/attendance/AttendanceHistoryPage";
 import { FeeLedgerListPage } from "@/pages/fee-ledger/FeeLedgerListPage";
 import { StudentPaymentPage } from "@/pages/fee-ledger/StudentPaymentPage";
+import { ReceiptsListPage } from "@/pages/fee-ledger/ReceiptsListPage";
+import { ReceiptPrintPage } from "@/pages/fee-ledger/ReceiptPrintPage";
 import { FeeStructurePage } from "@/pages/fee-structure/FeeStructurePage";
 import { DiaryPage } from "@/pages/diary/DiaryPage";
 import { TimetablePage } from "@/pages/timetable/TimetablePage";
@@ -105,6 +107,14 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Standalone print route — bypasses AppShell so the layout doesn't
+          fight with the sidebar / topbar when printing on A5 landscape. */}
+      <Route
+        path="/print/receipt/:id"
+        element={<RequireAuth><ReceiptPrintPage /></RequireAuth>}
+      />
+
       <Route
         path="/"
         element={
@@ -154,6 +164,7 @@ export function App() {
         <Route path="attendance/student/:srNumber" element={<AttendanceHistoryPage />} />
 
         <Route path="fee-ledger" element={<FeeLedgerListPage />} />
+        <Route path="fee-ledger/receipts" element={<ReceiptsListPage />} />
         <Route path="fee-ledger/student/:srNumber" element={<StudentPaymentPage />} />
 
         <Route path="fee-structure" element={<FeeStructurePage />} />

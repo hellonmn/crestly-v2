@@ -6,6 +6,9 @@ import type {
   FeeLedgerQuery,
   FeeLedgerResponse,
   FeePaymentMethod,
+  ReceiptListQuery,
+  ReceiptListResponse,
+  ReceiptPrint,
   RecordPaymentInput,
   StudentFeeDetail,
 } from "@crestly/shared";
@@ -21,9 +24,16 @@ export class FeesService {
   async list(query: FeeLedgerQuery): Promise<FeeLedgerResponse> {
     const sessionCode = query.sessionCode ?? (await this.sessions.current()).code;
 
+    // `with_balance` is a pseudo-status filter — any student with dueAmount > 0.
+    const statusFilter: Prisma.StudentFeeWhereInput = (() => {
+      if (!query.status) return {};
+      if (query.status === "with_balance") return { dueAmount: { gt: 0 } };
+      return { paymentStatus: query.status };
+    })();
+
     const where: Prisma.StudentFeeWhereInput = {
       sessionCode,
-      ...(query.status && { paymentStatus: query.status }),
+      ...statusFilter,
       ...((query.class || query.section || query.q) && {
         student: {
           ...(query.class && { class: query.class }),
@@ -32,6 +42,9 @@ export class FeesService {
             OR: [
               { studentName: { contains: query.q } },
               { fatherName: { contains: query.q } },
+              ...(/^\d+$/.test(query.q.trim())
+                ? [{ srNumber: Number(query.q.trim()) } as Prisma.StudentWhereInput]
+                : []),
             ],
           }),
         },
@@ -40,15 +53,17 @@ export class FeesService {
 
     const orderBy: Prisma.StudentFeeOrderByWithRelationInput = (() => {
       switch (query.sort) {
-        case "due_asc": return { dueAmount: "asc" };
-        case "name": return { student: { studentName: "asc" } };
-        case "class": return { student: { class: "asc" } };
-        case "due_desc":
-        default: return { dueAmount: "desc" };
+        case "due_asc":   return { dueAmount: "asc" };
+        case "due_desc":  return { dueAmount: "desc" };
+        case "paid_desc": return { paidAmount: "desc" };
+        case "name_asc":  return { student: { studentName: "asc" } };
+        case "class_asc":
+        default:          return { student: { class: "asc" } };
       }
     })();
 
-    const [total, rows, summary] = await Promise.all([
+    const [total, rows, summary, overdueCount, fullyPaidCount, withBalanceCount,
+           classesRaw, sectionsRaw] = await Promise.all([
       this.prisma.db.studentFee.count({ where }),
       this.prisma.db.studentFee.findMany({
         where,
@@ -70,11 +85,15 @@ export class FeesService {
         _sum: { paidAmount: true, dueAmount: true, totalThisYear: true },
         _count: { _all: true },
       }),
-    ]);
-
-    const [overdueCount, fullyPaidCount] = await Promise.all([
       this.prisma.db.studentFee.count({ where: { ...where, paymentStatus: "overdue" } }),
       this.prisma.db.studentFee.count({ where: { ...where, paymentStatus: "paid" } }),
+      this.prisma.db.studentFee.count({ where: { ...where, dueAmount: { gt: 0 } } }),
+      this.prisma.db.student.findMany({
+        distinct: ["class"], select: { class: true }, orderBy: { class: "asc" },
+      }),
+      this.prisma.db.student.findMany({
+        distinct: ["section"], select: { section: true }, orderBy: { section: "asc" },
+      }),
     ]);
 
     return {
@@ -94,13 +113,159 @@ export class FeesService {
       total,
       page: query.page,
       pageSize: query.pageSize,
+      sessionCode,
       collected: summary._sum.paidAmount ?? 0,
       outstanding: summary._sum.dueAmount ?? 0,
       overdueCount,
       fullyPaidCount,
+      withBalanceCount,
       sessionTotal: summary._sum.totalThisYear ?? 0,
       sessionPaid: summary._sum.paidAmount ?? 0,
       sessionDue: summary._sum.dueAmount ?? 0,
+      classes: classesRaw.map((c) => c.class),
+      sections: sectionsRaw.map((s) => s.section),
+    };
+  }
+
+  /**
+   * Flat list of every fee_payment row — mirrors erp/fee-ledger/payments.php.
+   * Voided rows are hidden by default; pass `showVoided=true` to include
+   * them in the result so the audit trail is reachable.
+   */
+  async receipts(query: ReceiptListQuery): Promise<ReceiptListResponse> {
+    const sessionCode = query.sessionCode ?? (await this.sessions.current()).code;
+
+    const where: Prisma.fee_paymentsWhereInput = {
+      session_code: sessionCode,
+      ...(query.method && { method: query.method }),
+      ...(query.from && { paid_on: { gte: new Date(query.from) } }),
+      ...(query.to && {
+        paid_on: { ...(query.from ? { gte: new Date(query.from) } : {}), lte: new Date(query.to) },
+      }),
+      ...(query.showVoided ? {} : { is_voided: false }),
+      ...(query.q && {
+        OR: [
+          { receipt_no: { contains: query.q } },
+          { students: { studentName: { contains: query.q } } },
+          ...(/^\d+$/.test(query.q.trim())
+            ? [{ sr_number: Number(query.q.trim()) } as Prisma.fee_paymentsWhereInput]
+            : []),
+        ],
+      }),
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(today.getTime() + 86400000 - 1);
+
+    const [total, rows, agg, todayAgg, sessionsRaw] = await Promise.all([
+      this.prisma.db.fee_payments.count({ where }),
+      this.prisma.db.fee_payments.findMany({
+        where,
+        include: {
+          students: { select: { studentName: true, class: true, section: true, is_hostel: true } },
+        },
+        orderBy: [{ paid_on: "desc" }, { id: "desc" }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.db.fee_payments.aggregate({ where, _sum: { amount: true } }),
+      this.prisma.db.fee_payments.aggregate({
+        where: { session_code: sessionCode, is_voided: false, paid_on: { gte: today, lte: todayEnd } },
+        _sum: { amount: true }, _count: { _all: true },
+      }),
+      this.prisma.db.fee_payments.findMany({
+        distinct: ["session_code"], select: { session_code: true }, orderBy: { session_code: "desc" },
+      }),
+    ]);
+
+    const sessions = sessionsRaw.map((s) => s.session_code);
+    if (!sessions.includes(sessionCode)) sessions.unshift(sessionCode);
+
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        receiptNo: r.receipt_no,
+        srNumber: r.sr_number,
+        studentName: r.students.studentName,
+        class: r.students.class,
+        section: r.students.section,
+        isHostel: r.students.is_hostel,
+        amount: r.amount,
+        paidOn: r.paid_on.toISOString().slice(0, 10),
+        method: r.method,
+        reference: r.reference,
+        notes: r.notes,
+        recordedBy: r.recorded_by,
+        isVoided: r.is_voided,
+        voidedAt: r.voided_at ? r.voided_at.toISOString() : null,
+      })),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+      sessionCode,
+      totalAmount: agg._sum?.amount ?? 0,
+      todayCount: todayAgg._count?._all ?? 0,
+      todayAmount: todayAgg._sum?.amount ?? 0,
+      sessions,
+    };
+  }
+
+  /**
+   * Single receipt payload for the A5 print page. Joins payment + student
+   * + the matching student_fees row for running totals, plus school_info
+   * for the header (name/address/board).
+   */
+  async receiptDetail(paymentId: number): Promise<ReceiptPrint> {
+    const p = await this.prisma.db.fee_payments.findUnique({
+      where: { id: paymentId },
+      include: {
+        students: {
+          select: {
+            srNumber: true, studentName: true, class: true, section: true,
+            fatherName: true, motherName: true, is_hostel: true,
+          },
+        },
+      },
+    });
+    if (!p) throw new NotFoundException(`Receipt #${paymentId} not found`);
+
+    const [fee, schoolInfoRows] = await Promise.all([
+      this.prisma.db.studentFee.findUnique({
+        where: { srNumber_sessionCode: { srNumber: p.sr_number, sessionCode: p.session_code } },
+        select: { totalThisYear: true, paidAmount: true, dueAmount: true },
+      }),
+      this.prisma.db.schoolInfo.findMany().catch(() => []),
+    ]);
+
+    const info = new Map(schoolInfoRows.map((r) => [r.k, r.v ?? null]));
+
+    return {
+      id: p.id,
+      receiptNo: p.receipt_no,
+      sessionCode: p.session_code,
+      amount: p.amount,
+      paidOn: p.paid_on.toISOString().slice(0, 10),
+      method: p.method,
+      reference: p.reference,
+      notes: p.notes,
+      recordedBy: p.recorded_by,
+      isVoided: p.is_voided,
+      voidedReason: p.voided_reason,
+      createdAt: p.created_at ? p.created_at.toISOString() : new Date(0).toISOString(),
+      srNumber: p.sr_number,
+      studentName: p.students.studentName,
+      class: p.students.class,
+      section: p.students.section,
+      fatherName: p.students.fatherName,
+      motherName: p.students.motherName,
+      isHostel: p.students.is_hostel,
+      totalThisYear: fee?.totalThisYear ?? 0,
+      totalPaid:     fee?.paidAmount    ?? 0,
+      totalDue:      fee?.dueAmount     ?? 0,
+      schoolName:    info.get("School Name") ?? "School",
+      schoolAddress: info.get("Address") ?? null,
+      schoolBoard:   info.get("Board") ?? null,
     };
   }
 
