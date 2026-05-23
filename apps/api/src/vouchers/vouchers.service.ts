@@ -75,12 +75,12 @@ export class VouchersService {
       }),
     };
 
-    const [total, rows, agg, paid, credit, pending] = await Promise.all([
+    const [total, rows, agg, paid, credit, pending, catsRaw] = await Promise.all([
       this.prisma.db.vouchers.count({ where }),
       this.prisma.db.vouchers.findMany({
         where,
         include: this.includeFull(),
-        orderBy: { id: "desc" },
+        orderBy: [{ voucher_date: "desc" }, { id: "desc" }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
@@ -91,6 +91,12 @@ export class VouchersService {
         _sum: { amount: true },
       }),
       this.prisma.db.vouchers.count({ where: { ...where, status: "pending_approval" } }),
+      this.prisma.db.vouchers.findMany({
+        distinct: ["category"],
+        select: { category: true },
+        where: { category: { not: null } },
+        orderBy: { category: "asc" },
+      }),
     ]);
 
     return {
@@ -102,6 +108,7 @@ export class VouchersService {
       paidAmount: paid._sum.amount ?? 0,
       creditUnpaid: credit._sum.amount ?? 0,
       pendingApproval: pending,
+      categories: catsRaw.map((c) => c.category!).filter(Boolean),
     };
   }
 

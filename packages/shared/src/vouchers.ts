@@ -94,6 +94,8 @@ export const VoucherListResponseSchema = z.object({
   paidAmount: z.number().int(),
   creditUnpaid: z.number().int(),
   pendingApproval: z.number().int(),
+  /** Distinct category values for the filter dropdown. */
+  categories: z.array(z.string()),
 });
 export type VoucherListResponse = z.infer<typeof VoucherListResponseSchema>;
 
