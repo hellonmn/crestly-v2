@@ -56,6 +56,7 @@ import { PunchPage } from "@/pages/staff-attendance/PunchPage";
 import { ExamsIndexPage } from "@/pages/exams/ExamsIndexPage";
 import { ExamTermsPage } from "@/pages/exams/ExamTermsPage";
 import { ExamSubjectsPage } from "@/pages/exams/ExamSubjectsPage";
+import { ExamDatesheetPage } from "@/pages/exams/ExamDatesheetPage";
 import { ExamMarksPage } from "@/pages/exams/ExamMarksPage";
 import { ExamResultsPage } from "@/pages/exams/ExamResultsPage";
 import { PromotionPage } from "@/pages/promotion/PromotionPage";
@@ -186,6 +187,7 @@ export function App() {
         <Route path="exams" element={<ExamsIndexPage />} />
         <Route path="exams/terms" element={<ExamTermsPage />} />
         <Route path="exams/subjects" element={<ExamSubjectsPage />} />
+        <Route path="exams/datesheet" element={<ExamDatesheetPage />} />
         <Route path="exams/marks" element={<ExamMarksPage />} />
         <Route path="exams/results" element={<ExamResultsPage />} />
 

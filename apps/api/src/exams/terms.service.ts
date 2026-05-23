@@ -16,7 +16,27 @@ export class ExamTermsService {
       where: { session_code: code },
       orderBy: [{ sort_order: "asc" }, { id: "asc" }],
     });
-    return rows.map(toDto);
+
+    // Hydrate per-term papers + marks counts in two batched queries so the
+    // UI can show usage stats without a separate roundtrip.
+    if (rows.length === 0) return [];
+    const ids = rows.map((r) => r.id);
+    const [papers, marks] = await Promise.all([
+      this.prisma.db.exam_datesheet.groupBy({
+        by: ["term_id"], where: { term_id: { in: ids } }, _count: { _all: true },
+      }).catch(() => [] as Array<{ term_id: number; _count: { _all: number } }>),
+      this.prisma.db.exam_marks.groupBy({
+        by: ["term_id"], where: { term_id: { in: ids } }, _count: { _all: true },
+      }).catch(() => [] as Array<{ term_id: number; _count: { _all: number } }>),
+    ]);
+    const paperCount = new Map(papers.map((p) => [p.term_id, p._count._all]));
+    const markCount  = new Map(marks.map((m) => [m.term_id, m._count._all]));
+
+    return rows.map((r) => ({
+      ...toDto(r),
+      papersCount: paperCount.get(r.id) ?? 0,
+      marksCount:  markCount.get(r.id)  ?? 0,
+    }));
   }
 
   async findOne(id: number): Promise<ExamTerm> {
@@ -65,6 +85,12 @@ export class ExamTermsService {
     const existing = await this.prisma.db.exam_terms.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException();
     if (existing.is_finalized) throw new BadRequestException("Cannot delete a finalized term.");
+    // Refuse if marks already recorded for this term — admin must wipe
+    // marks first via the marks page to prevent accidental loss.
+    const markCount = await this.prisma.db.exam_marks.count({ where: { term_id: id } });
+    if (markCount > 0) {
+      throw new BadRequestException(`Marks exist for this term (${markCount}) — clear them first.`);
+    }
     await this.prisma.db.exam_terms.delete({ where: { id } });
     return { ok: true };
   }

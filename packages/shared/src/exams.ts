@@ -12,6 +12,9 @@ export const ExamTermSchema = z.object({
   defaultMaxMarks: z.number().int(),
   sortOrder: z.number().int(),
   isFinalized: z.boolean(),
+  /** Counts populated by the list endpoint so the table can show usage stats. */
+  papersCount: z.number().int().nonnegative().optional(),
+  marksCount: z.number().int().nonnegative().optional(),
 });
 export type ExamTerm = z.infer<typeof ExamTermSchema>;
 
