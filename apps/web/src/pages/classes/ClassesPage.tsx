@@ -561,9 +561,26 @@ function SectionEditModal({
             </div>
 
             <div className="teacher-combo__list" role="listbox">
-              {eligibleTeachers.length === 0 ? (
+              {team.length === 0 ? (
                 <div className="teacher-combo__empty muted body-s">
-                  No teachers match.
+                  No staff loaded. The API may have been offline when this page opened — close and re-open this modal to retry.
+                </div>
+              ) : eligibleTeachers.length === 0 ? (
+                <div className="teacher-combo__empty muted body-s">
+                  0 of {team.length} staff match{teacherSearch.trim() ? <> "<b>{teacherSearch.trim()}</b>"</> : ""}.
+                  {teacherSearch.trim() && (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        className="link-button"
+                        style={{ color: "var(--orange-deep)", textDecoration: "underline" }}
+                        onClick={() => setTeacherSearch("")}
+                      >
+                        Clear search
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 eligibleTeachers.map((u) => {
@@ -598,7 +615,11 @@ function SectionEditModal({
             <div className="teacher-combo__hint">
               <span className="label" style={{ color: "var(--ink-40)" }}>SHOWING</span>{" "}
               <span style={{ color: "var(--ink)", fontWeight: 600 }}>
-                {wing ? `${wing} wing first` : "all teachers"}
+                {eligibleTeachers.length} of {team.length}
+              </span>
+              {" · "}
+              <span style={{ color: "var(--ink-60)" }}>
+                {wing ? `${wing} wing first` : "all staff"}
               </span>
             </div>
           </div>
