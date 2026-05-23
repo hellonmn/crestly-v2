@@ -245,6 +245,7 @@ export {
   ExamMarksRowSchema, ExamMarksQuerySchema, ExamMarksResponseSchema, ExamMarkSaveSchema,
   CoGradeSchema, CoAreaSchema, CoGradeSaveSchema,
   ResultRowSchema, ResultsQuerySchema, ResultsResponseSchema,
+  MarksheetQuerySchema, MarksheetSubjectRowSchema, MarksheetCoRowSchema, MarksheetSchema,
 } from "./exams";
 export type {
   ExamTerm, ExamTermUpsert,
@@ -253,6 +254,7 @@ export type {
   ExamMarksRow, ExamMarksQuery, ExamMarksResponse, ExamMarkSave,
   CoGrade, CoArea, CoGradeSave,
   ResultRow, ResultsQuery, ResultsResponse,
+  MarksheetQuery, MarksheetSubjectRow, MarksheetCoRow, Marksheet,
 } from "./exams";
 
 // --- promotion ---

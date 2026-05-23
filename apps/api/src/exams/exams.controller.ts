@@ -5,6 +5,7 @@ import { ExamDatesheetService } from "./datesheet.service";
 import { ExamMarksService } from "./marks.service";
 import { ExamCoScholasticService } from "./co-scholastic.service";
 import { ExamResultsService } from "./results.service";
+import { ExamMarksheetService } from "./marksheet.service";
 import { RequirePerm } from "../auth/require-perm.decorator";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ZodPipe } from "../common/zod.pipe";
@@ -16,12 +17,13 @@ import {
   ExamMarksQuerySchema,
   ExamSubjectUpsertSchema,
   ExamTermUpsertSchema,
+  MarksheetQuerySchema,
   ResultsQuerySchema,
 } from "@crestly/shared";
 import type {
   CoGradeSave, ExamClassSubjectToggle, ExamDatesheetUpsert,
   ExamMarkSave, ExamMarksQuery, ExamSubjectUpsert, ExamTermUpsert,
-  ResultsQuery, CurrentUser as User,
+  MarksheetQuery, ResultsQuery, CurrentUser as User,
 } from "@crestly/shared";
 
 @Controller("exams")
@@ -33,6 +35,7 @@ export class ExamsController {
     private readonly marks: ExamMarksService,
     private readonly co: ExamCoScholasticService,
     private readonly resultsService: ExamResultsService,
+    private readonly marksheet: ExamMarksheetService,
   ) {}
 
   // --- terms ---
@@ -149,5 +152,15 @@ export class ExamsController {
   @RequirePerm("exams.view")
   results(@Query(new ZodPipe(ResultsQuerySchema)) query: ResultsQuery) {
     return this.resultsService.results(query);
+  }
+
+  // --- marksheet (single-student print payload) ---
+  @Get("marksheet/:sr")
+  @RequirePerm("exams.view")
+  marksheetForStudent(
+    @Param("sr", ParseIntPipe) sr: number,
+    @Query(new ZodPipe(MarksheetQuerySchema)) query: MarksheetQuery,
+  ) {
+    return this.marksheet.build(sr, query);
   }
 }

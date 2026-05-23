@@ -130,6 +130,105 @@ export const ExamMarkSaveSchema = z.object({
 });
 export type ExamMarkSave = z.infer<typeof ExamMarkSaveSchema>;
 
+// --- marksheet print payload ---
+
+/**
+ * Single-student marksheet aggregate. Drives /print/marksheet/:sr.
+ * Mirrors erp/lib/exams.php :: exam_build_marksheet() — pass/fail is
+ * gated by the Annual paper for each subject.
+ */
+export const MarksheetQuerySchema = z.object({
+  sessionCode: z.string().optional(),    // defaults to current
+  termId: z.coerce.number().int().optional(),  // single-term mode if set
+});
+export type MarksheetQuery = z.infer<typeof MarksheetQuerySchema>;
+
+export const MarksheetSubjectRowSchema = z.object({
+  subjectId: z.number().int(),
+  subjectName: z.string(),
+  shortCode: z.string(),
+  isLanguage: z.boolean(),
+  /** Per-term marks: { termId: { obtained, max, isAbsent } | null }. */
+  perTerm: z.record(z.string(), z.object({
+    obtained: z.number().nullable(),
+    max: z.number().int(),
+    isAbsent: z.boolean(),
+  }).nullable()),
+  obtained: z.number(),    // summed across all visible terms
+  max: z.number().int(),
+  weightedPercent: z.number(),
+  finalGrade: z.string(),
+  failed: z.boolean(),
+  annualStatus: z.enum(["pending", "pass", "fail", "absent"]),
+});
+export type MarksheetSubjectRow = z.infer<typeof MarksheetSubjectRowSchema>;
+
+export const MarksheetCoRowSchema = z.object({
+  areaId: z.number().int(),
+  areaName: z.string(),
+  description: z.string().nullable(),
+  /** Per-term grade: { termId: 'A'|'B'|'C' | null }. */
+  perTerm: z.record(z.string(), z.enum(["A", "B", "C"]).nullable()),
+});
+export type MarksheetCoRow = z.infer<typeof MarksheetCoRowSchema>;
+
+export const MarksheetSchema = z.object({
+  student: z.object({
+    srNumber: z.number().int(),
+    studentName: z.string(),
+    fatherName: z.string().nullable(),
+    motherName: z.string().nullable(),
+    dob: z.string().nullable(),
+    class: z.string(),
+    section: z.string(),
+    address: z.string().nullable(),
+  }),
+  session: z.string(),
+  /** Terms shown in the marksheet (single term when filtered, all otherwise). */
+  terms: z.array(z.object({
+    id: z.number().int(),
+    name: z.string(),
+    shortCode: z.string(),
+    weightPercent: z.number(),
+    isFinalized: z.boolean(),
+  })),
+  isSingleTerm: z.boolean(),
+  /** When isSingleTerm, the picked term; null otherwise. */
+  filterTerm: z.object({
+    id: z.number().int(),
+    name: z.string(),
+    shortCode: z.string(),
+  }).nullable(),
+  /** "Decision" term — Annual (when present) or the last term. */
+  annualTerm: z.object({
+    id: z.number().int(),
+    name: z.string(),
+    shortCode: z.string(),
+  }).nullable(),
+  subjects: z.array(MarksheetSubjectRowSchema),
+  coScholastic: z.array(MarksheetCoRowSchema),
+  overall: z.object({
+    obtained: z.number(),
+    max: z.number().int(),
+    percent: z.number(),
+    grade: z.string(),
+    result: z.enum(["PASS", "FAIL"]),
+    rank: z.number().int().nullable(),
+    classSize: z.number().int(),
+  }),
+  /** Promotion mapping (Nursery→LKG, …, 11th→12th). Null after 12th
+   *  or on a non-annual single-term view. */
+  nextClass: z.string().nullable(),
+  /** Top-level school info for the printed header. */
+  school: z.object({
+    name: z.string(),
+    address: z.string().nullable(),
+    board: z.string().nullable(),
+    sessionLabel: z.string().nullable(),
+  }),
+});
+export type Marksheet = z.infer<typeof MarksheetSchema>;
+
 // --- co-scholastic ---
 
 export const CoGradeSchema = z.enum(["A", "B", "C"]);

@@ -271,7 +271,7 @@ export function ExamResultsPage() {
                       </td>
                       <td>
                         <Link
-                          to={`/exams/marksheet/${r.srNumber}${termId ? `?term=${termId}` : ""}`}
+                          to={`/print/marksheet/${r.srNumber}${termId ? `?term=${termId}` : ""}`}
                           style={{ textDecoration: "none", color: "inherit" }}
                         >
                           <b>{r.studentName}</b>
@@ -299,7 +299,7 @@ export function ExamResultsPage() {
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <Link
-                          to={`/exams/marksheet/${r.srNumber}${termId ? `?term=${termId}` : ""}`}
+                          to={`/print/marksheet/${r.srNumber}${termId ? `?term=${termId}` : ""}`}
                           className="btn btn--ghost btn--sm"
                         >
                           Marksheet

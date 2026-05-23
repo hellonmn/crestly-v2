@@ -60,6 +60,7 @@ import { ExamDatesheetPage } from "@/pages/exams/ExamDatesheetPage";
 import { ExamCoScholasticPage } from "@/pages/exams/ExamCoScholasticPage";
 import { ExamMarksPage } from "@/pages/exams/ExamMarksPage";
 import { ExamResultsPage } from "@/pages/exams/ExamResultsPage";
+import { MarksheetPrintPage } from "@/pages/exams/MarksheetPrintPage";
 import { PromotionPage } from "@/pages/promotion/PromotionPage";
 import { AdmissionsListPage } from "@/pages/admissions/AdmissionsListPage";
 import { EnquiryViewPage } from "@/pages/admissions/EnquiryViewPage";
@@ -115,6 +116,10 @@ export function App() {
       <Route
         path="/print/receipt/:id"
         element={<RequireAuth><ReceiptPrintPage /></RequireAuth>}
+      />
+      <Route
+        path="/print/marksheet/:sr"
+        element={<RequireAuth><MarksheetPrintPage /></RequireAuth>}
       />
 
       <Route

@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import type {
   CoGradeSave, ExamClassSubjectToggle, ExamDatesheetRow, ExamDatesheetUpsert,
   ExamMarkSave, ExamMarksQuery, ExamMarksResponse, ExamSubject, ExamSubjectUpsert,
-  ExamTerm, ExamTermUpsert, ResultsQuery, ResultsResponse,
+  ExamTerm, ExamTermUpsert, ResultsQuery, ResultsResponse, Marksheet,
 } from "@crestly/shared";
 
 const KEY = ["exams"] as const;
@@ -144,5 +144,17 @@ export function useResults(query: ResultsQuery | null) {
     queryKey: [...KEY, "results", query],
     enabled: !!query,
     queryFn: async () => (await api.get<ResultsResponse>("/exams/results", { params: query })).data,
+  });
+}
+
+// --- marksheet (single-student print payload) ---
+export function useMarksheet(sr: number | undefined, termId?: number) {
+  return useQuery({
+    queryKey: [...KEY, "marksheet", sr, termId ?? null],
+    enabled: typeof sr === "number" && !Number.isNaN(sr),
+    queryFn: async () =>
+      (await api.get<Marksheet>(`/exams/marksheet/${sr}`, {
+        params: termId ? { termId } : {},
+      })).data,
   });
 }
