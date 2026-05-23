@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { CrestlyLogo, Icon } from "@crestly/icons";
 import { authStore, useAuth } from "@/lib/auth-store";
 import { BrandDot } from "@/components/BrandDot";
+import { SpotlightTriggerHint, useOpenSpotlight } from "@/components/Spotlight";
 
 /**
  * Mobile top app bar. CSS in components.css hides it ≥960px.
@@ -10,6 +11,7 @@ import { BrandDot } from "@/components/BrandDot";
 export function Topbar({ schoolName }: { schoolName: string }) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const openSpotlight = useOpenSpotlight();
 
   function logout() {
     if (!window.confirm("Log out?")) return;
@@ -26,6 +28,12 @@ export function Topbar({ schoolName }: { schoolName: string }) {
           <BrandDot />
         </span>
       </Link>
+
+      {user && (
+        <div style={{ marginLeft: "auto", marginRight: 8 }}>
+          <SpotlightTriggerHint onOpen={openSpotlight} />
+        </div>
+      )}
 
       {user ? (
         <button

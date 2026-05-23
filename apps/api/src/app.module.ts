@@ -40,6 +40,7 @@ import { WhatsappModule } from "./whatsapp/whatsapp.module";
 import { FeaturesModule } from "./features/features.module";
 import { SuperadminModule } from "./superadmin/superadmin.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { SearchModule } from "./search/search.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 
 @Module({
@@ -84,6 +85,7 @@ import { JwtAuthGuard } from "./auth/jwt-auth.guard";
     HostelModule,
     TransportModule,
     WhatsappModule,
+    SearchModule,
     FeaturesModule,
     SuperadminModule,
     DashboardModule,

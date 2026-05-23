@@ -249,6 +249,15 @@ export type {
   PunchTodayResponse,
 } from "./staff-attendance";
 
+// --- search (spotlight) ---
+export {
+  SearchHitKindSchema, SearchHitSchema, SearchGroupSchema,
+  SearchResponseSchema, SearchQuerySchema,
+} from "./search";
+export type {
+  SearchHitKind, SearchHit, SearchGroup, SearchResponse, SearchQuery,
+} from "./search";
+
 // --- exams ---
 export {
   ExamTermSchema, ExamTermUpsertSchema,

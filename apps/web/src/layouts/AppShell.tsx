@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { InstallPwaBanner } from "@/components/InstallPwaBanner";
+import { Spotlight } from "@/components/Spotlight";
 
 /**
  * Full Crestly app shell. The class names + DOM structure mirror
@@ -38,6 +39,7 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
         <span className="app-credit__dot" />
       </footer>
       <InstallPwaBanner />
+      <Spotlight />
     </>
   );
 }

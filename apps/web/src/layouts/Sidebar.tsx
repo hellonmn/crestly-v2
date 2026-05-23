@@ -2,6 +2,7 @@ import { Link, NavLink } from "react-router-dom";
 import { Icon, CrestlyLogo, type IconName } from "@crestly/icons";
 import { useAuth } from "@/lib/auth-store";
 import { BrandDot } from "@/components/BrandDot";
+import { SpotlightTriggerHint, useOpenSpotlight } from "@/components/Spotlight";
 
 type Tint = "mint" | "peach" | "rose" | "mustard" | "wheat" | "sky";
 
@@ -105,6 +106,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export function Sidebar({ schoolName }: { schoolName: string }) {
   const { user } = useAuth();
+  const openSpotlight = useOpenSpotlight();
   const session = "2025-26"; // TODO: hydrate from /api/sessions/current
 
   const can = (perm?: string) => !perm || (user?.permissions ?? []).includes(perm);
@@ -134,6 +136,10 @@ export function Sidebar({ schoolName }: { schoolName: string }) {
           <div className="session-block__lbl">SESSION</div>
           <div className="session-block__val">{session}</div>
         </div>
+      </div>
+
+      <div style={{ padding: "0 14px 12px" }}>
+        <SpotlightTriggerHint onOpen={openSpotlight} />
       </div>
 
       <div className="app__nav-items">
