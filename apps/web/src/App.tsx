@@ -57,6 +57,7 @@ import { ExamsIndexPage } from "@/pages/exams/ExamsIndexPage";
 import { ExamTermsPage } from "@/pages/exams/ExamTermsPage";
 import { ExamSubjectsPage } from "@/pages/exams/ExamSubjectsPage";
 import { ExamDatesheetPage } from "@/pages/exams/ExamDatesheetPage";
+import { ExamCoScholasticPage } from "@/pages/exams/ExamCoScholasticPage";
 import { ExamMarksPage } from "@/pages/exams/ExamMarksPage";
 import { ExamResultsPage } from "@/pages/exams/ExamResultsPage";
 import { PromotionPage } from "@/pages/promotion/PromotionPage";
@@ -190,6 +191,7 @@ export function App() {
         <Route path="exams/datesheet" element={<ExamDatesheetPage />} />
         <Route path="exams/marks" element={<ExamMarksPage />} />
         <Route path="exams/results" element={<ExamResultsPage />} />
+        <Route path="exams/co-scholastic" element={<ExamCoScholasticPage />} />
 
         <Route path="promotion" element={<PromotionPage />} />
 
