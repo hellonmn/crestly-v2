@@ -27,3 +27,6 @@ Thumbs.db
 
 # Prisma generated
 apps/api/prisma/generated
+
+# Runtime user uploads (selfies, voucher attachments, brand assets, leave proofs)
+apps/api/uploads/

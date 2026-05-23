@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { StatTile } from "@/components/StatTile";
+import { Modal } from "@/components/Modal";
 import {
   useFinalizePromotion, usePromoteSection, usePromotionOverview, usePromotionSection,
 } from "./hooks";
@@ -155,22 +156,24 @@ function SectionEditor({ section, onClose }: { section: { class: string; section
   }
 
   return (
-    <div className="card">
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
-        <div className="display-s" style={{ fontSize: 18 }}>Section {section.class}-{section.section}</div>
-        <button className="btn btn--ghost btn--sm" onClick={onClose} style={{ marginLeft: "auto" }}>
-          <Icon name="x" size={14} /> Close
-        </button>
-      </div>
+    <Modal
+      open
+      title={`Promote · Section ${section.class}-${section.section}`}
+      onClose={onClose}
+      size="lg"
+      actions={
+        <>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--primary" onClick={onSubmit} disabled={promote.isPending}>
+            {promote.isPending ? "Saving…" : "Save section decisions"}
+          </button>
+        </>
+      }
+    >
       <div className="form-grid form-grid--2" style={{ marginBottom: 12 }}>
         <div className="field">
           <label className="field__label">Default "to class" for everyone promoted</label>
           <input className="input mono" value={defaultToClass} onChange={(e) => setDefaultToClass(e.target.value)} placeholder="e.g. 11" />
-        </div>
-        <div style={{ display: "flex", alignItems: "end" }}>
-          <button className="btn btn--primary" onClick={onSubmit} disabled={promote.isPending}>
-            {promote.isPending ? "Saving…" : "Save section decisions"}
-          </button>
         </div>
       </div>
 
@@ -227,7 +230,7 @@ function SectionEditor({ section, onClose }: { section: { class: string; section
           })}
         </tbody>
       </table>
-    </div>
+    </Modal>
   );
 }
 

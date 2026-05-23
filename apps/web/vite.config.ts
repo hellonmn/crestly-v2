@@ -70,7 +70,11 @@ export default defineConfig({
     port: 5173,
     fs: { allow: [workspaceRoot] },
     proxy: {
-      "/api": { target: "http://localhost:4000", changeOrigin: true },
+      "/api":     { target: "http://localhost:4000", changeOrigin: true },
+      // Selfies + voucher attachments + brand uploads are served by the API
+      // under /uploads. In production they live on the same origin; in dev
+      // we need this proxy so <img src="/uploads/..."> resolves correctly.
+      "/uploads": { target: "http://localhost:4000", changeOrigin: true },
     },
   },
   optimizeDeps: {

@@ -4,28 +4,34 @@ import type { ReviewHistoryResponse, ReviewCheckInput } from "@crestly/shared";
 import type { CurrentUser } from "@crestly/shared";
 
 /**
- * Canonical list of dashboard tile keys that admins are expected to review
- * every day. Used to compute "% complete" per day.
+ * Canonical list of dashboard tile keys + their human-readable labels.
+ * Mirrors erp/lib/dashboard_review.php :: dashboard_review_items() exactly,
+ * so the PENDING list on this page reads with the same wording the user
+ * saw on the dashboard.
  *
- * Mirrors erp/index.php's dashboard checklist hook points. We keep them in
- * a TS constant for now; if you want them DB-driven later, move to a
- * `dashboard_review_keys` table.
+ * IMPORTANT: keys here MUST stay in sync with REVIEW_KEYS_ORDER in
+ * apps/web/src/pages/DashboardPage.tsx — they are the same set of 16.
  */
-const REVIEW_KEYS = [
-  "kpi.active_students",
-  "kpi.today_attendance",
-  "kpi.this_month_income",
-  "kpi.pending_approvals",
-  "card.fee_collection",
-  "card.cashflow",
-  "card.expense_donut",
-  "card.payroll_snapshot",
-  "card.hostel",
-  "card.transport",
-  "card.next_exam",
-  "card.class_distribution",
-  "card.recent_students",
-] as const;
+const REVIEW_ITEMS: Array<{ key: string; label: string }> = [
+  { key: "students",          label: "Active students" },
+  { key: "kpi-attendance",    label: "Today's attendance" },
+  { key: "kpi-income",        label: "This month income" },
+  { key: "kpi-approvals",     label: "Pending approvals" },
+  { key: "fee-collection",    label: "Fee collection" },
+  { key: "cashflow",          label: "Monthly cashflow" },
+  { key: "pulse-students",    label: "Student attendance pulse" },
+  { key: "pulse-staff",       label: "Staff punch-in" },
+  { key: "pulse-leaves",      label: "Leaves today" },
+  { key: "expense-breakdown", label: "Expense breakdown" },
+  { key: "payroll",           label: "Payroll" },
+  { key: "hostel",            label: "Hostel occupancy" },
+  { key: "transport",         label: "Transport" },
+  { key: "calendar",          label: "Upcoming exam / holiday" },
+  { key: "class-dist",        label: "Class distribution" },
+  { key: "recent-students",   label: "Recent students" },
+];
+const REVIEW_KEYS = REVIEW_ITEMS.map((i) => i.key);
+const REVIEW_LABEL = new Map<string, string>(REVIEW_ITEMS.map((i) => [i.key, i.label]));
 
 @Injectable()
 export class ReviewHistoryService {
@@ -65,11 +71,15 @@ export class ReviewHistoryService {
         const r = dayRows.find((x) => x.review_key === k)!;
         return {
           key: k,
-          label: r.review_label,
+          // Prefer the canonical label so the UI shows "Active students"
+          // even if the original tick stored a different label (or none).
+          label: REVIEW_LABEL.get(k) ?? r.review_label,
           reviewedAt: r.reviewed_at ? r.reviewed_at.toISOString() : new Date(0).toISOString(),
         };
       });
-      const pending = REVIEW_KEYS.filter((k) => !reviewedKeys.has(k)).map((k) => ({ key: k, label: null }));
+      const pending = REVIEW_KEYS
+        .filter((k) => !reviewedKeys.has(k))
+        .map((k) => ({ key: k, label: REVIEW_LABEL.get(k) ?? null }));
       days.push({ reviewDate: iso, total, reviewed, pending });
       sparkline.push({ date: iso, percent: Math.round((reviewed.length / total) * 100) });
       allTimeChecks += dayRows.length;

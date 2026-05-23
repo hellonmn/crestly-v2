@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { Skeleton } from "@/components/Skeleton";
 import { useDiaryDay, useSaveDiary } from "./hooks";
+import { useClasses } from "../classes/hooks";
 import type { DiaryEntry } from "@crestly/shared";
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -11,7 +14,11 @@ export function DiaryPage() {
   const [classSlug, setClassSlug] = useState("");
   const [section, setSection] = useState("");
   const ready = !!classSlug && !!section;
+
+  const { data: classes, isLoading: classesLoading } = useClasses();
   const { data, isLoading } = useDiaryDay(ready ? { date, class: classSlug, section } : null);
+
+  const sectionsForClass = (classes ?? []).find((c) => c.slug === classSlug)?.sections ?? [];
 
   function shift(days: number) {
     const d = new Date(date);
@@ -37,9 +44,46 @@ export function DiaryPage() {
 
       <div className="toolbar card">
         <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ maxWidth: 160 }} />
-        <input className="input mono" placeholder="Class" value={classSlug} onChange={(e) => setClassSlug(e.target.value)} style={{ maxWidth: 120 }} />
-        <input className="input mono" placeholder="Section" value={section} onChange={(e) => setSection(e.target.value)} style={{ maxWidth: 120 }} />
+
+        <select
+          className="select"
+          value={classSlug}
+          onChange={(e) => { setClassSlug(e.target.value); setSection(""); }}
+          disabled={classesLoading}
+        >
+          <option value="">{classesLoading ? "Loading classes…" : "Select class"}</option>
+          {classes?.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
+        </select>
+
+        <select
+          className="select"
+          value={section}
+          onChange={(e) => setSection(e.target.value)}
+          disabled={!classSlug}
+        >
+          <option value="">{classSlug ? "Select section" : "Pick class first"}</option>
+          {sectionsForClass.map((s) => (
+            <option key={s.id} value={s.code}>
+              {s.code}{s.teacherName ? ` · ${s.teacherName}` : ""}
+            </option>
+          ))}
+        </select>
       </div>
+
+      {/* ---------- Empty state ---------- */}
+      {!ready && (
+        <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div className="label" style={{ marginBottom: 8 }}>GET STARTED</div>
+          <div className="display-s" style={{ fontSize: 20, marginBottom: 6 }}>Pick a class and section</div>
+          <p className="muted body-s" style={{ margin: 0 }}>
+            {classesLoading
+              ? "Loading classes…"
+              : (classes?.length ?? 0) === 0
+                ? <>No classes are set up yet. Add them under <Link to="/classes">Classes</Link>.</>
+                : "Once selected, the day's periods load below for logging."}
+          </p>
+        </div>
+      )}
 
       {ready && data?.isHoliday && (
         <div className="banner banner--info">
@@ -48,18 +92,20 @@ export function DiaryPage() {
         </div>
       )}
 
-      {isLoading && ready && <p className="muted">Loading…</p>}
+      {ready && isLoading && <Skeleton.Table rows={4} cols={2} />}
 
-      {ready && data && data.entries.length === 0 && !data.isHoliday && (
+      {ready && !isLoading && data && data.entries.length === 0 && !data.isHoliday && (
         <div className="banner banner--warn">
           <Icon name="alert" size={16} />
-          <span>No periods configured for this section. Set up the timetable first.</span>
+          <span>No periods configured for this section. Set up the timetable under <Link to="/timetable">Timetable</Link> first.</span>
         </div>
       )}
 
-      <div className="grid grid--cols-2 grid--gap-sm">
-        {data?.entries.map((entry) => <DiaryCard key={entry.periodId} entry={entry} />)}
-      </div>
+      {ready && !isLoading && data && data.entries.length > 0 && (
+        <div className="grid grid--cols-2 grid--gap-sm">
+          {data.entries.map((entry) => <DiaryCard key={entry.periodId} entry={entry} />)}
+        </div>
+      )}
     </>
   );
 }

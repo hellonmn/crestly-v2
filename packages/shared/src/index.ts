@@ -16,6 +16,8 @@ export type { LoginInput, LoginResponse, CurrentUser } from "./auth";
 export {
   GenderSchema,
   StudentStatusSchema,
+  StudentAccomSchema,
+  StudentPaymentStatusSchema,
   StudentSchema,
   StudentListQuerySchema,
   StudentListResponseSchema,
@@ -24,6 +26,8 @@ export {
 export type {
   Gender,
   StudentStatus,
+  StudentAccom,
+  StudentPaymentStatus,
   Student,
   StudentListQuery,
   StudentListResponse,
@@ -209,6 +213,7 @@ export {
   StaffPunchListQuerySchema,
   StaffPunchListResponseSchema,
   PunchCreateSchema,
+  PunchTodaySchema,
 } from "./staff-attendance";
 export type {
   PunchType,
@@ -217,6 +222,7 @@ export type {
   StaffPunchListQuery,
   StaffPunchListResponse,
   PunchCreateInput,
+  PunchTodayResponse,
 } from "./staff-attendance";
 
 // --- exams ---
@@ -323,8 +329,14 @@ export { HrDashboardSchema } from "./hr";
 export type { HrDashboard } from "./hr";
 
 // --- salary ---
-export { SalaryDayRowSchema, SalaryQuerySchema, SalaryResponseSchema } from "./salary";
-export type { SalaryDayRow, SalaryQuery, SalaryResponse } from "./salary";
+export {
+  SalaryDayRowSchema, SalaryDayStateSchema,
+  SalaryQuerySchema, SalaryResponseSchema,
+} from "./salary";
+export type {
+  SalaryDayRow, SalaryDayState,
+  SalaryQuery, SalaryResponse,
+} from "./salary";
 
 // --- leaves ---
 export {

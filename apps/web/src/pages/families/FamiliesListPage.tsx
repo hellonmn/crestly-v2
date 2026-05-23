@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { StatTile } from "@/components/StatTile";
+import { Skeleton } from "@/components/Skeleton";
 import { useFamilies } from "./hooks";
 import { useAuth } from "@/lib/auth-store";
 
@@ -48,6 +49,20 @@ export function FamiliesListPage() {
       </div>
 
       <div className="table-card">
+        {isLoading ? (
+          <Skeleton.Table rows={6} cols={6} />
+        ) : data && data.items.length === 0 ? (
+          <div style={{ padding: "48px 24px", textAlign: "center" }}>
+            <div className="label" style={{ marginBottom: 8 }}>NO FAMILIES</div>
+            <div className="muted">
+              {q
+                ? <>No families match "<b>{q}</b>".</>
+                : canManage
+                  ? <>No sibling families yet. Use <b>Add family</b> above to create one.</>
+                  : "No sibling families yet."}
+            </div>
+          </div>
+        ) : (
         <table className="data-table">
           <thead>
             <tr>
@@ -60,12 +75,6 @@ export function FamiliesListPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && (
-              <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--ink-40)" }}>Loading…</td></tr>
-            )}
-            {!isLoading && data?.items.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--ink-40)" }}>No matches</td></tr>
-            )}
             {data?.items.map((f) => (
               <tr key={f.familyId}>
                 <td className="td-sr mono">{f.familyId}</td>
@@ -93,6 +102,7 @@ export function FamiliesListPage() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </>
   );

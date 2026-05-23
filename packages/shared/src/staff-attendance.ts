@@ -12,6 +12,15 @@ export const StaffPunchSchema = z.object({
   userName: z.string(),
   designation: z.string().nullable(),
   department: z.string().nullable(),
+  /** Joined fields used by the detail page header / right column. */
+  roleName: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  reportsToName: z.string().nullable().optional(),
+  pickupName: z.string().nullable().optional(),
+  /** Geofence centre coords — drive the Compare-maps link. */
+  centreLatitude: z.number().nullable().optional(),
+  centreLongitude: z.number().nullable().optional(),
+  centreLabel: z.string().nullable().optional(),
   punchType: PunchTypeSchema,
   punchedAt: z.string(),
   latitude: z.number(),
@@ -58,3 +67,28 @@ export const PunchCreateSchema = z.object({
   selfieBase64: z.string().nullable().optional(),
 });
 export type PunchCreateInput = z.infer<typeof PunchCreateSchema>;
+
+/**
+ * Self-service status payload. Drives the React PunchPage layout —
+ * mirrors `erp/punch/index.php` so the page can show Status / First in /
+ * Last out tiles, cooldown card, and today's events.
+ */
+export const PunchTodaySchema = z.object({
+  isIn: z.boolean(),
+  nextType: PunchTypeSchema,
+  cooldownSeconds: z.number().int().nonnegative(),
+  cooldownReadyAt: z.string().nullable(),
+  doneForDay: z.boolean(),
+  tomorrowAt: z.string(),
+  target: z.object({
+    type: GeofenceTypeSchema,
+    label: z.string(),
+    radiusM: z.number().int().nonnegative(),
+    latitude: z.number().nullable(),
+    longitude: z.number().nullable(),
+  }).nullable(),
+  punches: z.array(StaffPunchSchema),
+  firstIn: StaffPunchSchema.nullable(),
+  lastOut: StaffPunchSchema.nullable(),
+});
+export type PunchTodayResponse = z.infer<typeof PunchTodaySchema>;

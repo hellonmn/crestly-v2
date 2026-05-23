@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { JwtModule } from "@nestjs/jwt";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { SuperAuthController } from "./super-auth.controller";
 import { SuperAuthService } from "./super-auth.service";
 import { SchoolsAdminController } from "./schools-admin.controller";
@@ -17,8 +19,19 @@ import { PricingStrategyController } from "./pricing-strategy.controller";
 import { PricingStrategyService } from "./pricing-strategy.service";
 import { MarketingLeadsController } from "./marketing-leads.controller";
 import { MarketingLeadsService } from "./marketing-leads.service";
+import { SuperAdminGuard } from "./super-admin.guard";
 
 @Module({
+  imports: [
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>("JWT_SECRET"),
+        signOptions: { expiresIn: config.get<string>("JWT_EXPIRES_IN", "12h") },
+      }),
+    }),
+  ],
   controllers: [
     SuperAuthController,
     SchoolsAdminController,
@@ -40,6 +53,7 @@ import { MarketingLeadsService } from "./marketing-leads.service";
     UpgradesService,
     PricingStrategyService,
     MarketingLeadsService,
+    SuperAdminGuard,
   ],
 })
 export class SuperadminModule {}

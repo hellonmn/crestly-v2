@@ -20,7 +20,7 @@ const NAV: { title?: string; items: NavEntry[] }[] = [
     title: "Catalog",
     items: [
       { to: "/catalog", label: "Features", icon: "library" },
-      { to: "/pricing", label: "Pricing strategy", icon: "rupee" },
+      { to: "/pricing", label: "Pricing", icon: "rupee" },
     ],
   },
   {
@@ -34,9 +34,9 @@ const NAV: { title?: string; items: NavEntry[] }[] = [
   {
     title: "Brand Studio",
     items: [
-      { to: "/brand", label: "Brand Studio", icon: "features" },
-      { to: "/brand/settings", label: "Brand settings", icon: "settings" },
-      { to: "/brand/guidelines", label: "Brand guidelines", icon: "library" },
+      { to: "/brand", label: "Studio", icon: "features" },
+      { to: "/brand/settings", label: "Settings", icon: "settings" },
+      { to: "/brand/guidelines", label: "Guidelines", icon: "library" },
     ],
   },
   {

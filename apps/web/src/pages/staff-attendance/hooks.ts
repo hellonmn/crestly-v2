@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
   PunchCreateInput,
+  PunchTodayResponse,
   StaffPunch,
   StaffPunchListQuery,
   StaffPunchListResponse,
@@ -28,6 +29,17 @@ export function usePunch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: PunchCreateInput) => (await api.post<StaffPunch>("/punch", input)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ["punch", "today"] });
+    },
+  });
+}
+
+export function usePunchToday() {
+  return useQuery({
+    queryKey: ["punch", "today"],
+    queryFn: async () => (await api.get<PunchTodayResponse>("/punch/today")).data,
+    refetchOnWindowFocus: true,
   });
 }

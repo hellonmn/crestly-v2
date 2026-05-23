@@ -15,6 +15,14 @@ export type StudentStatus = z.infer<typeof StudentStatusSchema>;
  * Student row as returned by the API. `srNumber` is the admission roll
  * number and the primary key — no surrogate id.
  */
+/**
+ * Per-row payment summary the list endpoint may carry inline (parity with
+ * the PHP page's STATUS column pill). Optional because not every caller
+ * needs the join (e.g. SR-pickers).
+ */
+export const StudentPaymentStatusSchema = z.enum(["paid", "partial", "pending", "overdue"]);
+export type StudentPaymentStatus = z.infer<typeof StudentPaymentStatusSchema>;
+
 export const StudentSchema = z.object({
   srNumber: z.number().int().positive(),
   studentName: z.string().min(1).max(120),
@@ -37,14 +45,29 @@ export const StudentSchema = z.object({
   status: StudentStatusSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** Joined display fields (only when the list endpoint hydrates them). */
+  pickupName: z.string().nullable().optional(),
+  isHostel: z.boolean().optional(),
+  paymentStatus: StudentPaymentStatusSchema.nullable().optional(),
+  dueAmount: z.number().int().nonnegative().optional(),
 });
 export type Student = z.infer<typeof StudentSchema>;
+
+/**
+ * Mirrors filters from erp/students/index.php:
+ *   q, class, section, gender, status, accom, page
+ * `accom` follows the PHP convention: "" (all) | "day" | "hostel".
+ */
+export const StudentAccomSchema = z.enum(["day", "hostel"]);
+export type StudentAccom = z.infer<typeof StudentAccomSchema>;
 
 export const StudentListQuerySchema = z.object({
   q: z.string().optional(),
   class: z.string().optional(),
   section: z.string().optional(),
-  status: StudentStatusSchema.optional(),
+  gender: GenderSchema.optional(),
+  status: z.enum(["active", "inactive", "all"]).optional(),
+  accom: StudentAccomSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
 });
@@ -55,6 +78,9 @@ export const StudentListResponseSchema = z.object({
   total: z.number().int().nonnegative(),
   page: z.number().int().positive(),
   pageSize: z.number().int().positive(),
+  /** Distinct values for the desktop/mobile filter selects. */
+  classes: z.array(z.string()).optional(),
+  sections: z.array(z.string()).optional(),
 });
 export type StudentListResponse = z.infer<typeof StudentListResponseSchema>;
 

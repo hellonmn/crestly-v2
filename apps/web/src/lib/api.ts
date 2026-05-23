@@ -27,10 +27,29 @@ api.interceptors.response.use(
   },
 );
 
+interface ApiErrorBody {
+  message?: string | string[];
+  /** Zod issues array attached by apps/api/src/common/zod.pipe.ts */
+  issues?: Array<{ path: Array<string | number>; message: string }>;
+  error?: string;
+}
+
 export function getErrorMessage(err: unknown, fallback = "Something went wrong"): string {
   if (err instanceof AxiosError) {
-    const data = err.response?.data as { message?: string | string[] } | undefined;
-    if (Array.isArray(data?.message)) return data!.message.join(", ");
+    const data = err.response?.data as ApiErrorBody | undefined;
+
+    // Prefer Zod issues when present — they pinpoint the exact bad field
+    // (e.g. "latitude: Required") instead of a generic "Validation failed".
+    if (Array.isArray(data?.issues) && data.issues.length > 0) {
+      const parts = data.issues.map((i) => {
+        const path = (i.path ?? []).join(".") || "body";
+        return `${path}: ${i.message}`;
+      });
+      const base = typeof data.message === "string" ? data.message : "Validation failed";
+      return `${base} — ${parts.join("; ")}`;
+    }
+
+    if (Array.isArray(data?.message)) return data.message.join(", ");
     if (typeof data?.message === "string") return data.message;
     return err.message || fallback;
   }

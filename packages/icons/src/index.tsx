@@ -301,6 +301,48 @@ const PATHS: Record<string, JSX.Element> = {
       <path d="M9 9c.4.7 1.2 1.7 2.2 2.7s2 1.8 2.7 2.2c.6.4 1.3.4 1.8 0l.7-.7c.4-.4 1-.5 1.5-.2l1.7 1c.5.3.7 1 .4 1.5l-.6 1.1c-.5.9-1.6 1.4-2.6 1.1a13 13 0 0 1-7.4-7.4c-.3-1 .2-2.1 1.1-2.6l1.1-.6c.5-.3 1.2-.1 1.5.4l1 1.7c.3.5.2 1.1-.2 1.5l-.7.7c-.4.5-.4 1.2 0 1.8z" />
     </>
   ),
+  // Filled-in gaps used across the apps -----------------------------------
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+      <circle cx="17" cy="8" r="3" />
+      <path d="M16 20a6.5 6.5 0 0 1 5.5-6.5" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+      <circle cx="8" cy="14" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="14" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  library: (
+    <>
+      <path d="M4 3v18M20 3v18" />
+      <rect x="7" y="4" width="3" height="16" />
+      <rect x="11" y="6" width="3" height="14" />
+      <path d="M15 7l2.5-.7L20 16l-2.5.7z" />
+    </>
+  ),
+  phone: (
+    <>
+      <path d="M5 4h3l2 5-2 1a11 11 0 0 0 6 6l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />
+    </>
+  ),
+  filter: (
+    <>
+      <path d="M4 5h16M7 12h10M10 19h4" />
+    </>
+  ),
+  pencil: (
+    <>
+      <path d="M4 20l4-1 11-11-3-3L5 16z" />
+      <path d="M14 6l3 3" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof PATHS;

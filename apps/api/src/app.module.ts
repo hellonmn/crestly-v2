@@ -39,7 +39,7 @@ import { UploadsModule } from "./uploads/uploads.module";
 import { WhatsappModule } from "./whatsapp/whatsapp.module";
 import { FeaturesModule } from "./features/features.module";
 import { SuperadminModule } from "./superadmin/superadmin.module";
-import { SuperAdminGuard } from "./superadmin/super-admin.guard";
+import { DashboardModule } from "./dashboard/dashboard.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 
 @Module({
@@ -86,11 +86,11 @@ import { JwtAuthGuard } from "./auth/jwt-auth.guard";
     WhatsappModule,
     FeaturesModule,
     SuperadminModule,
+    DashboardModule,
   ],
   providers: [
     // Every route is protected by default; @Public() opts out.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    SuperAdminGuard,
   ],
 })
 export class AppModule {}

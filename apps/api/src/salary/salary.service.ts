@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { RequestPrismaService } from "../prisma/request-prisma.service";
-import type { SalaryResponse, SalaryDayRow } from "@crestly/shared";
+import type { SalaryResponse, SalaryDayRow, SalaryDayState } from "@crestly/shared";
 
 /**
  * Per-user monthly salary ledger. Simple model:
@@ -17,7 +17,7 @@ export class SalaryService {
   async monthly(userId: number, month: string): Promise<SalaryResponse> {
     const user = await this.prisma.db.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, monthly_salary: true },
+      select: { id: true, name: true, monthly_salary: true, designation: true, department: true },
     });
     if (!user) throw new NotFoundException(`User #${userId} not found`);
 
@@ -27,6 +27,7 @@ export class SalaryService {
     const monthDays = end.getUTCDate();
     const monthlySalary = user.monthly_salary ?? 0;
     const dailyGross = monthDays > 0 ? Math.round(monthlySalary / monthDays) : 0;
+    const todayIso = new Date().toISOString().slice(0, 10);
 
     // Pull all punches in the window.
     const punches = await this.prisma.db.staff_attendance.findMany({
@@ -60,7 +61,7 @@ export class SalaryService {
     });
 
     const rows: SalaryDayRow[] = [];
-    let totalCut = 0, daysMarked = 0;
+    let totalCut = 0, daysMarked = 0, daysPresent = 0, daysAbsent = 0, daysPending = 0;
 
     for (let d = 1; d <= monthDays; d++) {
       const date = new Date(Date.UTC(yr!, mo! - 1, d));
@@ -68,6 +69,7 @@ export class SalaryService {
       const dow = date.getUTCDay();          // 0=Sun
       const isWeekend = dow === 0;
       const isHoliday = holidaySet.has(iso);
+      const isFuture = iso > todayIso;
 
       const p = punchByDay.get(iso);
       const marked = !!p?.in;
@@ -82,11 +84,22 @@ export class SalaryService {
         if (p?.out) earlyMin = Math.max(0, Math.round((dutyEnd.getTime() - p.out.getTime()) / 60_000) - 15);
       }
 
-      const cutDay = !marked && !isWeekend && !isHoliday ? dailyGross : 0;
+      const cutDay = !marked && !isWeekend && !isHoliday && !isFuture ? dailyGross : 0;
       const cutMinutes = Math.round(((lateMin + earlyMin) / 720) * dailyGross);
       const cut = cutDay + cutMinutes;
-      const net = Math.max(0, dailyGross - cut);
-      totalCut += cut;
+      const net = isFuture ? 0 : Math.max(0, dailyGross - cut);
+      if (!isFuture) totalCut += cut;
+
+      // Derive a coarse-grained state so the UI can pick the right pill.
+      let state: SalaryDayState;
+      if (isHoliday) state = "holiday";
+      else if (isWeekend) state = "weekend";
+      else if (isFuture) state = "future";
+      else if (monthlySalary <= 0) state = "no_salary";
+      else if (!schedule) state = "no_shift";
+      else if (marked && !p?.out) { state = "pending"; daysPending++; }
+      else if (marked) { state = "computed"; daysPresent++; }
+      else { state = "absent"; daysAbsent++; }
 
       rows.push({
         date: iso,
@@ -99,6 +112,7 @@ export class SalaryService {
         net,
         isHoliday,
         isWeekend,
+        state,
       });
     }
 
@@ -116,8 +130,14 @@ export class SalaryService {
     ).length;
 
     return {
-      userId, userName: user.name, month, monthlySalary,
-      dailyGross, daysMarked, totalCut, netEarned,
+      userId, userName: user.name,
+      userDesignation: user.designation ?? null,
+      userDepartment: user.department ?? null,
+      month, monthlySalary,
+      dailyGross,
+      daysInMonth: monthDays,
+      daysMarked, daysPresent, daysAbsent, daysPending,
+      totalCut, netEarned,
       paidViaVoucher, due: Math.max(0, netEarned - paidViaVoucher),
       pendingVouchers, rows,
     };

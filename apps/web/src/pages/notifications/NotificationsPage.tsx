@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { Skeleton } from "@/components/Skeleton";
 import { useMarkAllRead, useMarkRead, useNotifications } from "./hooks";
 import type { AppNotification } from "@crestly/shared";
 
@@ -33,10 +34,17 @@ export function NotificationsPage() {
         }
       />
 
-      {isLoading && <p className="muted">Loading…</p>}
-      {data && data.items.length === 0 && (
-        <div className="card">
-          <p className="muted" style={{ margin: 0 }}>You're all caught up.</p>
+      {isLoading && (
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: 16 }}><Skeleton.Text width="40%" /></div>
+          <div style={{ padding: 16 }}><Skeleton.Text width="65%" /></div>
+          <div style={{ padding: 16 }}><Skeleton.Text width="50%" /></div>
+        </div>
+      )}
+      {!isLoading && data && data.items.length === 0 && (
+        <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div className="label" style={{ marginBottom: 8 }}>ALL CAUGHT UP</div>
+          <div className="muted body-s">You don't have any notifications right now.</div>
         </div>
       )}
 

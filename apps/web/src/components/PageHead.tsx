@@ -25,7 +25,7 @@ export function PageHead({
   group?: string;
   meta?: string;
   title: string;
-  lede?: string;
+  lede?: React.ReactNode;
   actions?: React.ReactNode;
 }) {
   return (

@@ -10,7 +10,8 @@
     "db:pull": "prisma db pull",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "seed:demo": "ts-node --transpile-only -P tsconfig.json scripts/seed-demo.ts"
+    "seed:demo": "ts-node --transpile-only -P tsconfig.json scripts/seed-demo.ts",
+    "seed:super": "ts-node --transpile-only -P tsconfig.json scripts/seed-super.ts"
   },
   "dependencies": {
     "@crestly/shared": "*",

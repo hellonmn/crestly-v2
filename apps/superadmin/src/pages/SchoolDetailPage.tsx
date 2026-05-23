@@ -1,11 +1,11 @@
-import { useState } from "react";
+
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { api, getErrorMessage } from "@/lib/api";
 import type {
-  PartnerSchoolDetail, PartnerSchoolStatus, SchoolFeatureToggle, SchoolUpsert,
+  PartnerSchoolDetail, PartnerSchoolStatus, SchoolFeatureToggle,
   FeaturesCatalogResponse,
 } from "@crestly/shared";
 

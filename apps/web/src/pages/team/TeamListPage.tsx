@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { StatTile } from "@/components/StatTile";
+import { Skeleton } from "@/components/Skeleton";
 import { useTeamList } from "./hooks";
 import { useAuth } from "@/lib/auth-store";
 
@@ -76,6 +77,9 @@ export function TeamListPage() {
       </div>
 
       <div className="table-card">
+        {isLoading ? (
+          <Skeleton.Table rows={6} cols={5} />
+        ) : (
         <table className="data-table">
           <thead>
             <tr>
@@ -87,14 +91,7 @@ export function TeamListPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && (
-              <tr>
-                <td colSpan={5} style={{ padding: 32, textAlign: "center", color: "var(--ink-40)" }}>
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!isLoading && data?.items.length === 0 && (
+            {data?.items.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: 32, textAlign: "center", color: "var(--ink-40)" }}>
                   No matches
@@ -125,6 +122,7 @@ export function TeamListPage() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </>
   );

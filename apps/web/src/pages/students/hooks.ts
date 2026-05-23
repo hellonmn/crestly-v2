@@ -11,6 +11,7 @@ export function useStudents(query: Partial<StudentListQuery>) {
       const { data } = await api.get<StudentListResponse>("/students", { params: query });
       return data;
     },
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -40,5 +41,20 @@ export function useSaveStudent(srNumber: number | undefined) {
       qc.invalidateQueries({ queryKey: [...KEY, "list"] });
       qc.setQueryData([...KEY, "one", saved.srNumber], saved);
     },
+  });
+}
+
+/**
+ * Bulk action endpoint used by the sticky action bar on the students list.
+ * Mirrors the PHP page's POST `_bulk=activate|deactivate|delete` flow.
+ */
+export function useStudentBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { op: "activate" | "deactivate" | "delete"; srs: number[] }) => {
+      const { data } = await api.post<{ affected: number }>("/students/bulk", input);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...KEY, "list"] }),
   });
 }

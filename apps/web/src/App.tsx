@@ -47,6 +47,7 @@ import { WorkloadPage } from "@/pages/timetable/WorkloadPage";
 import { DailyReportPage } from "@/pages/daily-report/DailyReportPage";
 import { NotificationsPage } from "@/pages/notifications/NotificationsPage";
 import { StaffAttendancePage } from "@/pages/staff-attendance/StaffAttendancePage";
+import { StaffPunchDetailPage } from "@/pages/staff-attendance/StaffPunchDetailPage";
 import { PunchPage } from "@/pages/staff-attendance/PunchPage";
 
 // Batch C: academic
@@ -167,6 +168,7 @@ export function App() {
         <Route path="notifications" element={<NotificationsPage />} />
 
         <Route path="staff-attendance" element={<StaffAttendancePage />} />
+        <Route path="staff-attendance/:id" element={<StaffPunchDetailPage />} />
         <Route path="punch" element={<PunchPage />} />
 
         {/* Batch C: academic */}

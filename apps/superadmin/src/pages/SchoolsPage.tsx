@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { StatTile } from "@/components/StatTile";
+import { Skeleton } from "@/components/Skeleton";
 import { api } from "@/lib/api";
 import type { PartnerSchoolStatus, SchoolListResponse } from "@crestly/shared";
 
@@ -66,6 +67,9 @@ export function SchoolsPage() {
       </div>
 
       <div className="table-card">
+        {isLoading ? (
+          <Skeleton.Table rows={6} cols={7} />
+        ) : (
         <table className="data-table">
           <thead>
             <tr>
@@ -73,7 +77,6 @@ export function SchoolsPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={7} style={{ padding: 32, textAlign: "center", color: "var(--ink-40)" }}>Loading…</td></tr>}
             {filtered.map((s) => (
               <tr key={s.id}>
                 <td className="td-sr mono">{s.id}</td>
@@ -100,6 +103,7 @@ export function SchoolsPage() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </>
   );

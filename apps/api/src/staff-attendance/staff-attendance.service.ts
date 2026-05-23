@@ -4,11 +4,28 @@ import { RequestPrismaService } from "../prisma/request-prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import type {
   PunchCreateInput,
+  PunchTodayResponse,
   StaffPunch,
   StaffPunchListQuery,
   StaffPunchListResponse,
 } from "@crestly/shared";
 import type { CurrentUser } from "@crestly/shared";
+
+/** Match PHP PUNCH_OUT_COOLDOWN_SECS default — 15 min. */
+const DEFAULT_COOLDOWN_SECS = 15 * 60;
+const DEFAULT_RADIUS_M = 100;
+
+/** Haversine distance in metres between two lat/lng pairs. */
+function distanceMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371000;
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const lat1 = toRad(aLat);
+  const lat2 = toRad(bLat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
+}
 
 @Injectable()
 export class StaffAttendanceService {
@@ -46,7 +63,7 @@ export class StaffAttendanceService {
     ]);
 
     return {
-      items: rows.map(toDto),
+      items: rows.map((r) => toDto(r)),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -59,24 +76,56 @@ export class StaffAttendanceService {
   async findOne(id: number): Promise<StaffPunch> {
     const row = await this.prisma.db.staff_attendance.findUnique({
       where: { id },
-      include: { users: { select: { id: true, name: true, designation: true, department: true } } },
+      include: {
+        users: {
+          select: {
+            id: true, name: true, designation: true, department: true,
+            phone: true, roleId: true, reporting_user_id: true,
+            role: { select: { name: true } },
+            users: { select: { name: true } },   // self-relation = reports-to
+          },
+        },
+        pickup_points: { select: { name: true, latitude: true, longitude: true } },
+      },
     });
     if (!row) throw new NotFoundException(`Punch #${id} not found`);
-    return toDto(row);
+
+    // Resolve geofence centre — pickup row if this was a pickup punch, else
+    // the school coords from school_info. Drives the Compare-maps link.
+    let centreLat: number | null = null;
+    let centreLng: number | null = null;
+    let centreLabel = "School";
+    if (row.geofence_type === "pickup" && row.pickup_points) {
+      centreLat = row.pickup_points.latitude != null ? Number(row.pickup_points.latitude) : null;
+      centreLng = row.pickup_points.longitude != null ? Number(row.pickup_points.longitude) : null;
+      centreLabel = row.pickup_points.name ?? "Pickup point";
+    } else {
+      const target = await this.geofenceTarget();
+      centreLat = target?.latitude ?? null;
+      centreLng = target?.longitude ?? null;
+      centreLabel = target?.label ?? "School";
+    }
+    return toDto(row, { centreLat, centreLng, centreLabel });
   }
 
   /**
    * Save a punch event. Selfie is accepted as a base64 string and written to
-   * uploads/punch_selfies/. Distance calculation against the school geofence
-   * is left for Phase F (cross-cutting) — for now we store lat/lng raw and
-   * mark is_outside=false. The PHP punch endpoint had the same fallback in
-   * its earliest revisions.
+   * uploads/punch_selfies/. Computes distance against the configured school
+   * geofence so `distance_m` and `is_outside` are populated correctly.
    */
   async punch(input: PunchCreateInput, user: CurrentUser, ipAddress: string | null, userAgent: string | null): Promise<StaffPunch> {
     let selfiePath: string | null = null;
     if (input.selfieBase64) {
       const saved = await this.uploads.saveBase64("punch", `${Date.now()}.jpg`, input.selfieBase64);
       selfiePath = saved.filePath;
+    }
+
+    const target = await this.geofenceTarget();
+    let distance: number | null = null;
+    let isOutside = false;
+    if (target && target.latitude != null && target.longitude != null) {
+      distance = distanceMeters(input.latitude, input.longitude, target.latitude, target.longitude);
+      isOutside = distance > target.radiusM;
     }
 
     const row = await this.prisma.db.staff_attendance.create({
@@ -86,8 +135,9 @@ export class StaffAttendanceService {
         latitude: input.latitude,
         longitude: input.longitude,
         accuracy_m: input.accuracyM ?? null,
+        distance_m: distance,
         geofence_type: "school",
-        is_outside: false,
+        is_outside: isOutside,
         notes: input.notes ?? null,
         ip_address: ipAddress,
         user_agent: userAgent,
@@ -97,22 +147,131 @@ export class StaffAttendanceService {
     });
     return toDto(row);
   }
+
+  /**
+   * Self-service today snapshot. Mirrors the data block at the top of
+   * `erp/punch/index.php` so the React page can render Status / First in /
+   * Last out tiles + cooldown card + today's events without extra calls.
+   */
+  async today(user: CurrentUser): Promise<PunchTodayResponse> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(today.getTime() + 86400000 - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [punches, target, cooldownSecsSetting] = await Promise.all([
+      this.prisma.db.staff_attendance.findMany({
+        where: { user_id: user.id, punched_at: { gte: today, lte: todayEnd } },
+        include: { users: { select: { id: true, name: true, designation: true, department: true } } },
+        orderBy: { punched_at: "asc" },
+      }),
+      this.geofenceTarget(),
+      this.prisma.db.schoolInfo.findUnique({ where: { k: "Punch Cooldown Minutes" } }).catch(() => null),
+    ]);
+
+    const cooldownSecs = Math.max(0, Number(cooldownSecsSetting?.v ?? "")) * 60 || DEFAULT_COOLDOWN_SECS;
+
+    // Determine current state.
+    let isIn = false;
+    let lastInTs: number | null = null;
+    let firstIn: typeof punches[number] | null = null;
+    let lastOut: typeof punches[number] | null = null;
+    for (const p of punches) {
+      if (p.punch_type === "in") {
+        if (firstIn === null) firstIn = p;
+        lastInTs = p.punched_at.getTime();
+        isIn = true;
+      } else {
+        lastOut = p;
+        isIn = false;
+      }
+    }
+
+    const cooldownReadyAt = lastInTs ? lastInTs + cooldownSecs * 1000 : null;
+    const cooldownRemaining = cooldownReadyAt ? Math.max(0, Math.floor((cooldownReadyAt - Date.now()) / 1000)) : 0;
+    const doneForDay = !isIn && punches.some((p) => p.punch_type === "out");
+
+    return {
+      isIn,
+      nextType: isIn ? "out" : "in",
+      cooldownSeconds: cooldownRemaining,
+      cooldownReadyAt: cooldownReadyAt ? new Date(cooldownReadyAt).toISOString() : null,
+      doneForDay,
+      tomorrowAt: tomorrow.toISOString(),
+      target,
+      punches: punches.map((p) => toDto(p)),
+      firstIn: firstIn ? toDto(firstIn) : null,
+      lastOut: lastOut ? toDto(lastOut) : null,
+    };
+  }
+
+  /**
+   * Resolve the geofence target — name + lat/lng + radius. School-info is the
+   * canonical source. Returns null when nothing is configured.
+   */
+  private async geofenceTarget(): Promise<PunchTodayResponse["target"]> {
+    const info = await this.prisma.db.schoolInfo.findMany().catch(() => []);
+    const get = (k: string) => info.find((r) => r.k === k)?.v ?? null;
+    const lat = parseFloat(get("Geofence Latitude") ?? "");
+    const lng = parseFloat(get("Geofence Longitude") ?? "");
+    const radius = parseInt(get("Geofence Radius School") ?? "", 10);
+    const label = get("School Name") ?? "school";
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      // No coords configured — return a stub so the UI can still render the
+      // toolbar/lede sentence without blowing up.
+      return {
+        type: "school",
+        label,
+        radiusM: Number.isFinite(radius) ? radius : DEFAULT_RADIUS_M,
+        latitude: null,
+        longitude: null,
+      };
+    }
+    return {
+      type: "school",
+      label,
+      radiusM: Number.isFinite(radius) ? radius : DEFAULT_RADIUS_M,
+      latitude: lat,
+      longitude: lng,
+    };
+  }
 }
 
-function toDto(r: {
-  id: number; user_id: number; punch_type: "in" | "out"; punched_at: Date;
-  latitude: { toString: () => string }; longitude: { toString: () => string };
-  accuracy_m: number | null; distance_m: number | null;
-  geofence_type: "school" | "pickup"; geofence_pickup_id: number | null;
-  is_outside: boolean; selfie_path: string | null; notes: string | null;
-  users?: { id: number; name: string; designation: string | null; department: string | null };
-}): StaffPunch {
+/** Optional joined users.* shape that `findOne` requests. */
+interface RichUser {
+  id: number; name: string;
+  designation: string | null; department: string | null;
+  phone?: string | null;
+  roles?: { name: string } | null;
+  users?: { name: string } | null;   // self-relation: reports-to
+}
+
+function toDto(
+  r: {
+    id: number; user_id: number; punch_type: "in" | "out"; punched_at: Date;
+    latitude: { toString: () => string }; longitude: { toString: () => string };
+    accuracy_m: number | null; distance_m: number | null;
+    geofence_type: "school" | "pickup"; geofence_pickup_id: number | null;
+    is_outside: boolean; selfie_path: string | null; notes: string | null;
+    users?: RichUser;
+    pickup_points?: { name: string | null } | null;
+  },
+  centre?: { centreLat: number | null; centreLng: number | null; centreLabel: string },
+): StaffPunch {
   return {
     id: r.id,
     userId: r.user_id,
     userName: r.users?.name ?? `User #${r.user_id}`,
     designation: r.users?.designation ?? null,
     department: r.users?.department ?? null,
+    roleName: r.users?.roles?.name ?? null,
+    phone: r.users?.phone ?? null,
+    reportsToName: r.users?.users?.name ?? null,
+    pickupName: r.pickup_points?.name ?? null,
+    centreLatitude: centre?.centreLat ?? null,
+    centreLongitude: centre?.centreLng ?? null,
+    centreLabel: centre?.centreLabel ?? null,
     punchType: r.punch_type,
     punchedAt: r.punched_at.toISOString(),
     latitude: Number(r.latitude),
