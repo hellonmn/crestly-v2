@@ -5,6 +5,9 @@ export const ShiftRowSchema = z.object({
   name: z.string(),
   designation: z.string().nullable(),
   department: z.string().nullable(),
+  roleId: z.number().int().nullable(),
+  roleName: z.string().nullable(),
+  roleSlug: z.string().nullable(),
   monthlySalary: z.number().int().nullable(),
   dutyStart: z.string().nullable(),       // HH:MM:SS
   dutyEnd: z.string().nullable(),
@@ -25,6 +28,14 @@ export const ShiftListResponseSchema = z.object({
   withSchedule: z.number().int(),
   withoutSchedule: z.number().int(),
   total: z.number().int(),
+  /** Distinct roles for the role filter dropdown. */
+  roles: z.array(z.object({
+    id: z.number().int(),
+    slug: z.string(),
+    name: z.string(),
+  })),
+  /** Distinct departments for the department dropdown. */
+  departments: z.array(z.string()),
 });
 export type ShiftListResponse = z.infer<typeof ShiftListResponseSchema>;
 

@@ -10,23 +10,41 @@ export class ShiftsService {
   constructor(private readonly prisma: RequestPrismaService) {}
 
   async list(query: ShiftListQuery): Promise<ShiftListResponse> {
-    const users = await this.prisma.db.user.findMany({
-      where: {
-        status: "active",
-        ...(query.q && {
-          OR: [{ name: { contains: query.q } }, { employee_id: { contains: query.q } }, { phone: { contains: query.q } }],
-        }),
-        ...(query.department && { department: query.department }),
-        ...(query.roleSlug && { role: { slug: query.roleSlug } }),
-      },
-      include: {
-        staff_schedules_staff_schedules_user_idTousers: {
-          orderBy: { effective_from: "desc" },
-          take: 1,
+    const [users, allRoles, deptRows] = await Promise.all([
+      this.prisma.db.user.findMany({
+        where: {
+          status: "active",
+          ...(query.q && {
+            OR: [
+              { name: { contains: query.q } },
+              { employee_id: { contains: query.q } },
+              { phone: { contains: query.q } },
+              { designation: { contains: query.q } },
+            ],
+          }),
+          ...(query.department && { department: query.department }),
+          ...(query.roleSlug && { role: { slug: query.roleSlug } }),
         },
-      },
-      orderBy: { name: "asc" },
-    });
+        include: {
+          role: { select: { id: true, slug: true, name: true } },
+          staff_schedules_staff_schedules_user_idTousers: {
+            orderBy: { effective_from: "desc" },
+            take: 1,
+          },
+        },
+        orderBy: { name: "asc" },
+      }),
+      this.prisma.db.role.findMany({
+        select: { id: true, slug: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      this.prisma.db.user.findMany({
+        distinct: ["department"],
+        where: { status: "active", department: { not: null } },
+        select: { department: true },
+        orderBy: { department: "asc" },
+      }),
+    ]);
 
     const rows: ShiftRow[] = users.map((u) => {
       const sch = u.staff_schedules_staff_schedules_user_idTousers[0] ?? null;
@@ -35,6 +53,9 @@ export class ShiftsService {
         name: u.name,
         designation: u.designation,
         department: u.department,
+        roleId: u.role?.id ?? null,
+        roleName: u.role?.name ?? null,
+        roleSlug: u.role?.slug ?? null,
         monthlySalary: u.monthly_salary,
         dutyStart: sch?.duty_start ? sch.duty_start.toISOString().slice(11, 19) : null,
         dutyEnd: sch?.duty_end ? sch.duty_end.toISOString().slice(11, 19) : null,
@@ -49,6 +70,10 @@ export class ShiftsService {
       withSchedule,
       withoutSchedule: rows.length - withSchedule,
       total: rows.length,
+      roles: allRoles,
+      departments: deptRows
+        .map((r) => r.department)
+        .filter((d): d is string => d !== null),
     };
   }
 
