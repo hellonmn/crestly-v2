@@ -9,19 +9,26 @@ import { z } from "zod";
  * existing data is read without any rewrite.
  */
 
+/**
+ * Key names exactly match `erp/settings/index.php`'s `$KEYS` array — the
+ * existing PHP-written rows in `school_info` are read/written under these
+ * names by every service (marksheet, receipt, staff-attendance, geofence,
+ * punch cooldown). Do not invent new key names without a backfill migration.
+ */
 export const SCHOOL_INFO_KEYS = [
+  // General
   "School Name",
   "Address",
   "Board",
   "Time Zone",
   // Geofence
-  "Geofence Latitude",
-  "Geofence Longitude",
-  "Geofence Maps URL",
-  "Geofence Radius School",
-  "Geofence Radius Driver",
+  "Latitude",
+  "Longitude",
+  "Google Maps Link",
+  "Geofence Radius School M",
+  "Geofence Radius Driver M",
   // Punch policy
-  "Punch Cooldown Minutes",
+  "Punch Out Cooldown Min",
 ] as const;
 
 export type SchoolInfoKey = (typeof SCHOOL_INFO_KEYS)[number];

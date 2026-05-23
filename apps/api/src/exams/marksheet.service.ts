@@ -243,9 +243,11 @@ export class ExamMarksheetService {
     // --- School header info ---
     const info = await this.schoolInfo.getAll();
     const v = info.values;
-    const schoolName = v["school_name"] || "School";
-    const schoolAddress = v["address"] || v["school_address"] || null;
-    const board = v["board"] || null;
+    // Keys mirror erp/settings/index.php exactly so PHP-written rows are
+    // read without any rewrite. See packages/shared/src/school-info.ts.
+    const schoolName = v["School Name"] || "School";
+    const schoolAddress = v["Address"] || null;
+    const board = v["Board"] || null;
     const sessionLabel = session.label;
 
     return {

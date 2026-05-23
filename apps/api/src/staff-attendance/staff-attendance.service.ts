@@ -167,7 +167,8 @@ export class StaffAttendanceService {
         orderBy: { punched_at: "asc" },
       }),
       this.geofenceTarget(),
-      this.prisma.db.schoolInfo.findUnique({ where: { k: "Punch Cooldown Minutes" } }).catch(() => null),
+      // Key mirrors erp/settings/index.php — keep in sync via SCHOOL_INFO_KEYS.
+      this.prisma.db.schoolInfo.findUnique({ where: { k: "Punch Out Cooldown Min" } }).catch(() => null),
     ]);
 
     const cooldownSecs = Math.max(0, Number(cooldownSecsSetting?.v ?? "")) * 60 || DEFAULT_COOLDOWN_SECS;
@@ -213,9 +214,10 @@ export class StaffAttendanceService {
   private async geofenceTarget(): Promise<PunchTodayResponse["target"]> {
     const info = await this.prisma.db.schoolInfo.findMany().catch(() => []);
     const get = (k: string) => info.find((r) => r.k === k)?.v ?? null;
-    const lat = parseFloat(get("Geofence Latitude") ?? "");
-    const lng = parseFloat(get("Geofence Longitude") ?? "");
-    const radius = parseInt(get("Geofence Radius School") ?? "", 10);
+    // Key names mirror erp/settings/index.php verbatim. See SCHOOL_INFO_KEYS.
+    const lat = parseFloat(get("Latitude") ?? "");
+    const lng = parseFloat(get("Longitude") ?? "");
+    const radius = parseInt(get("Geofence Radius School M") ?? "", 10);
     const label = get("School Name") ?? "school";
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
       // No coords configured — return a stub so the UI can still render the
