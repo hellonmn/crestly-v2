@@ -286,16 +286,24 @@ export class StudentsService {
   }
 
   async create(input: StudentUpsert): Promise<Student> {
-    if (!input.srNumber) {
-      throw new ConflictException("srNumber is required (admission roll, set by admissions)");
+    // Auto-assign SR number when not supplied (PHP students/edit.php behaviour).
+    let srNumber = input.srNumber;
+    if (!srNumber) {
+      const max = await this.prisma.db.student.aggregate({
+        _max: { srNumber: true },
+      });
+      srNumber = (max._max.srNumber ?? 0) + 1;
+    } else {
+      const exists = await this.prisma.db.student.findUnique({
+        where: { srNumber },
+        select: { srNumber: true },
+      });
+      if (exists) throw new ConflictException(`Student #${srNumber} already exists`);
     }
-    const exists = await this.prisma.db.student.findUnique({
-      where: { srNumber: input.srNumber },
-      select: { srNumber: true },
-    });
-    if (exists) throw new ConflictException(`Student #${input.srNumber} already exists`);
 
-    const row = await this.prisma.db.student.create({ data: fromDto(input) });
+    const row = await this.prisma.db.student.create({
+      data: fromDto({ ...input, srNumber }),
+    });
     return toDto(row);
   }
 
@@ -396,22 +404,43 @@ function fromDto(input: StudentUpsert): Prisma.StudentUncheckedCreateInput {
   return {
     srNumber: input.srNumber!,
     studentName: input.studentName,
-    fatherName: input.fatherName,
-    motherName: input.motherName,
+    fatherName: input.fatherName ?? null,
+    motherName: input.motherName ?? null,
     dob: input.dob ? new Date(input.dob) : null,
-    age: input.age,
+    age: input.age ?? null,
     gender: input.gender ?? null,
-    address: input.address,
+    blood_group: input.bloodGroup ?? null,
+    address: input.address ?? null,
     class: input.class,
     section: input.section,
-    schoolName: input.schoolName,
-    board: input.board,
-    fatherContact: input.fatherContact,
-    motherContact: input.motherContact,
-    callingNumber: input.callingNumber,
-    whatsappNumber: input.whatsappNumber,
-    pickupPointId: input.pickupPointId,
-    familyId: input.familyId,
+    schoolName: input.schoolName ?? null,
+    board: input.board ?? null,
+    fatherContact: input.fatherContact ?? null,
+    father_whatsapp: input.fatherWhatsapp ?? null,
+    motherContact: input.motherContact ?? null,
+    mother_whatsapp: input.motherWhatsapp ?? null,
+    callingNumber: input.callingNumber ?? null,
+    whatsappNumber: input.whatsappNumber ?? null,
+    pickupPointId: input.pickupPointId ?? null,
+    pickup_point_name: input.pickupPointName ?? null,
+    familyId: input.familyId ?? null,
     status: input.status,
+    stream: input.stream ?? null,
+    sub_stream: input.subStream ?? null,
+    is_hostel: input.isHostel,
+    local_guardian_name: input.localGuardianName ?? null,
+    guardian_relation: input.guardianRelation ?? null,
+    local_guardian_contact: input.localGuardianContact ?? null,
+    local_guardian_whatsapp: input.localGuardianWhatsapp ?? null,
+    local_guardian_address: input.localGuardianAddress ?? null,
+    academic_contact_person: input.academicContactPerson ?? null,
+    academic_calling_number: input.academicCallingNumber ?? null,
+    academic_whatsapp_number: input.academicWhatsappNumber ?? null,
+    fee_contact_person: input.feeContactPerson ?? null,
+    fee_calling_number: input.feeCallingNumber ?? null,
+    fee_whatsapp_number: input.feeWhatsappNumber ?? null,
+    home_city: input.homeCity ?? null,
+    home_state: input.homeState ?? null,
+    home_address: input.homeAddress ?? null,
   };
 }

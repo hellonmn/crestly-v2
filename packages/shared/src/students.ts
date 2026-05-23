@@ -84,12 +84,67 @@ export const StudentListResponseSchema = z.object({
 });
 export type StudentListResponse = z.infer<typeof StudentListResponseSchema>;
 
-export const StudentUpsertSchema = StudentSchema.omit({
-  srNumber: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
+/**
+ * Student create / update payload — superset of the list-view Student
+ * schema. Mirrors every field the PHP students/edit.php form posts so
+ * the React edit page is a 1:1 port. SR number is optional on create
+ * (auto-assigned to MAX(sr_number)+1) and required on update via the URL.
+ */
+export const StudentUpsertSchema = z.object({
   srNumber: z.number().int().positive().optional(),
+
+  // Identity
+  studentName: z.string().min(1).max(120),
+  fatherName: z.string().max(120).nullable().optional(),
+  motherName: z.string().max(120).nullable().optional(),
+  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  age: z.number().int().min(0).max(255).nullable().optional(),
+  gender: GenderSchema.nullable().optional(),
+  bloodGroup: z.string().max(8).nullable().optional(),
+  address: z.string().nullable().optional(),
+
+  // Academic
+  class: z.string().min(1).max(16),
+  section: z.string().min(1).max(8),
+  schoolName: z.string().max(120).nullable().optional(),
+  board: z.string().max(32).nullable().optional(),
+  status: StudentStatusSchema.default("active"),
+  stream: z.string().max(16).nullable().optional(),
+  subStream: z.string().max(16).nullable().optional(),
+  isHostel: z.boolean().default(false),
+
+  // Contact numbers
+  fatherContact: z.string().max(20).nullable().optional(),
+  fatherWhatsapp: z.string().max(20).nullable().optional(),
+  motherContact: z.string().max(20).nullable().optional(),
+  motherWhatsapp: z.string().max(20).nullable().optional(),
+  callingNumber: z.string().max(20).nullable().optional(),
+  whatsappNumber: z.string().max(20).nullable().optional(),
+
+  // Local guardian
+  localGuardianName: z.string().max(120).nullable().optional(),
+  guardianRelation: z.string().max(60).nullable().optional(),
+  localGuardianContact: z.string().max(20).nullable().optional(),
+  localGuardianWhatsapp: z.string().max(20).nullable().optional(),
+  localGuardianAddress: z.string().nullable().optional(),
+
+  // Specialised contacts
+  academicContactPerson: z.string().max(120).nullable().optional(),
+  academicCallingNumber: z.string().max(20).nullable().optional(),
+  academicWhatsappNumber: z.string().max(20).nullable().optional(),
+  feeContactPerson: z.string().max(120).nullable().optional(),
+  feeCallingNumber: z.string().max(20).nullable().optional(),
+  feeWhatsappNumber: z.string().max(20).nullable().optional(),
+
+  // Pickup + family
+  pickupPointId: z.number().int().nullable().optional(),
+  pickupPointName: z.string().max(120).nullable().optional(),
+  familyId: z.number().int().nullable().optional(),
+
+  // Home (hostellers)
+  homeCity: z.string().max(80).nullable().optional(),
+  homeState: z.string().max(80).nullable().optional(),
+  homeAddress: z.string().nullable().optional(),
 });
 export type StudentUpsert = z.infer<typeof StudentUpsertSchema>;
 
