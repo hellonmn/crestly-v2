@@ -9,6 +9,6 @@ import { HdfcSettingsService } from "./hdfc-settings.service";
 @Module({
   controllers: [FeaturesController, HdfcSettingsController],
   providers: [FeaturesService, RazorpayService, HdfcSettingsService],
-  exports: [FeaturesService],
+  exports: [FeaturesService, HdfcSettingsService],
 })
 export class FeaturesModule {}

@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
+  CheckoutCreateInput,
+  CheckoutSession,
   FeeLedgerQuery,
   FeeLedgerResponse,
+  PaymentAttempt,
   ReceiptListQuery,
   ReceiptListResponse,
   ReceiptPrint,
@@ -73,5 +76,24 @@ export function useSendFeeReminder(srNumber: number) {
   return useMutation({
     mutationFn: async () =>
       (await api.post<{ ok: true; due: number }>(`/fees/student/${srNumber}/reminder`)).data,
+  });
+}
+
+/** Creates an HDFC SmartGateway checkout session for a student. */
+export function useCreateCheckout(srNumber: number) {
+  return useMutation({
+    mutationFn: async (input: CheckoutCreateInput) =>
+      (await api.post<CheckoutSession>(`/fees/student/${srNumber}/checkout`, input)).data,
+  });
+}
+
+/** Lists HDFC payment attempts for a student (or globally if sr is undefined). */
+export function usePaymentAttempts(srNumber?: number) {
+  return useQuery({
+    queryKey: ["fees", "payment-attempts", srNumber],
+    queryFn: async () =>
+      (await api.get<PaymentAttempt[]>("/fees/payment-attempts", {
+        params: srNumber ? { sr: srNumber } : {},
+      })).data,
   });
 }

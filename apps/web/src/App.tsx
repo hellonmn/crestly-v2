@@ -61,6 +61,9 @@ import { ExamCoScholasticPage } from "@/pages/exams/ExamCoScholasticPage";
 import { ExamMarksPage } from "@/pages/exams/ExamMarksPage";
 import { ExamResultsPage } from "@/pages/exams/ExamResultsPage";
 import { MarksheetPrintPage } from "@/pages/exams/MarksheetPrintPage";
+
+// Parent-facing payment result pages (no auth, no AppShell)
+import { PaySuccessPage, PayFailurePage } from "@/pages/pay/PayResultPage";
 import { PromotionPage } from "@/pages/promotion/PromotionPage";
 import { AdmissionsListPage } from "@/pages/admissions/AdmissionsListPage";
 import { EnquiryViewPage } from "@/pages/admissions/EnquiryViewPage";
@@ -121,6 +124,11 @@ export function App() {
         path="/print/marksheet/:sr"
         element={<RequireAuth><MarksheetPrintPage /></RequireAuth>}
       />
+
+      {/* Parent-facing payment result pages — public, no AppShell.
+          HDFC's return URL redirects here after a checkout. */}
+      <Route path="/pay/success" element={<PaySuccessPage />} />
+      <Route path="/pay/failure" element={<PayFailurePage />} />
 
       <Route
         path="/"

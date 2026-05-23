@@ -4,7 +4,8 @@ import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
-import { useRecordPayment, useStudentFee, useVoidPayment } from "./hooks";
+import { useCreateCheckout, useRecordPayment, useStudentFee, useVoidPayment } from "./hooks";
+import type { CheckoutSession } from "@crestly/shared";
 import { getErrorMessage } from "@/lib/api";
 import type { FeePaymentMethod, FeePaymentStatus } from "@crestly/shared";
 
@@ -372,6 +373,11 @@ export function StudentPaymentPage() {
             </div>
           </form>
 
+          {/* HDFC checkout — let the parent pay online */}
+          {data.dueAmount > 0 && (
+            <ParentCheckoutPanel sr={sr} dueAmount={data.dueAmount} />
+          )}
+
           {/* History */}
           <div>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
@@ -537,6 +543,143 @@ export function StudentPaymentPage() {
         </button>
       </div>
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Parent-checkout panel — admin generates an HDFC pay link            */
+/* ------------------------------------------------------------------ */
+
+function ParentCheckoutPanel({ sr, dueAmount }: { sr: number; dueAmount: number }) {
+  const create = useCreateCheckout(sr);
+  const [amount, setAmount] = useState<string>(String(dueAmount));
+  const [session, setSession] = useState<CheckoutSession | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function onGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setSession(null);
+    setCopied(false);
+    const n = Number(amount.replace(/[^0-9]/g, ""));
+    if (!n || n <= 0) { setErr("Enter an amount > 0."); return; }
+    if (n > dueAmount) { setErr(`Amount exceeds outstanding ₹${dueAmount.toLocaleString("en-IN")}.`); return; }
+    try {
+      const s = await create.mutateAsync({ amount: n, notes: null });
+      setSession(s);
+    } catch (e) {
+      setErr(getErrorMessage(e, "Couldn't create checkout"));
+    }
+  }
+
+  async function copyLink() {
+    if (!session) return;
+    try {
+      await navigator.clipboard.writeText(session.checkoutUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Older browsers — fall back to manual selection.
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: 20, marginTop: 16, borderColor: "var(--orange)", background: "rgba(242, 92, 25, 0.04)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <Icon name="rupee" size={18} />
+        <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 700 }}>
+          Send parent an online-pay link
+        </h3>
+        <span className="muted body-s" style={{ marginLeft: "auto" }}>
+          HDFC SmartGateway
+        </span>
+      </div>
+      <p className="muted body-s" style={{ margin: "0 0 12px", lineHeight: 1.5 }}>
+        Generate a one-tap checkout URL and share it on WhatsApp. The link expires in 15 minutes.
+        On successful payment the receipt is created automatically and a WhatsApp confirmation
+        is sent to the parent.
+      </p>
+
+      {!session && (
+        <form onSubmit={onGenerate} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div className="field" style={{ flex: "1 1 200px", minWidth: 180 }}>
+            <label className="field__label">Amount (₹)</label>
+            <input
+              className="input mono"
+              type="text"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder={String(dueAmount)}
+            />
+          </div>
+          <button type="submit" className="btn btn--primary" disabled={create.isPending}>
+            {create.isPending ? "Generating…" : "Generate link"}
+          </button>
+        </form>
+      )}
+
+      {err && (
+        <div className="banner banner--error" style={{ marginTop: 10 }}>
+          <Icon name="alert" size={14} /><span>{err}</span>
+        </div>
+      )}
+
+      {session && (
+        <div style={{ marginTop: 4, padding: 14, background: "var(--white)", border: "1px solid var(--rule)", borderRadius: 10 }}>
+          <div className="label" style={{ marginBottom: 6 }}>CHECKOUT LINK</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <code
+              className="mono"
+              style={{
+                flex: 1,
+                minWidth: 200,
+                padding: "8px 12px",
+                background: "var(--cream-soft)",
+                border: "1px solid var(--rule)",
+                borderRadius: 6,
+                fontSize: 11.5,
+                wordBreak: "break-all",
+                lineHeight: 1.4,
+              }}
+            >
+              {session.checkoutUrl}
+            </code>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={copyLink}>
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <a href={session.checkoutUrl} target="_blank" rel="noopener" className="btn btn--ghost btn--sm">
+              Open
+            </a>
+          </div>
+          <div className="muted body-s" style={{ marginTop: 8, fontSize: 11 }}>
+            Order <span className="mono">{session.orderId}</span> · expires{" "}
+            {new Date(session.expiresAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
+          </div>
+
+          {session.whatsappShareUrl && (
+            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a
+                href={session.whatsappShareUrl}
+                target="_blank"
+                rel="noopener"
+                className="btn btn--success btn--sm"
+              >
+                <Icon name="msg" size={14} /> Share on WhatsApp
+              </a>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => { setSession(null); setAmount(String(dueAmount)); }}
+              >
+                Generate another
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

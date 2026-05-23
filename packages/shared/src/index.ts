@@ -249,6 +249,16 @@ export type {
   PunchTodayResponse,
 } from "./staff-attendance";
 
+// --- payments (HDFC checkout) ---
+export {
+  CheckoutCreateSchema, CheckoutSessionSchema,
+  PaymentAttemptStatusSchema, PaymentAttemptSchema,
+} from "./payments";
+export type {
+  CheckoutCreateInput, CheckoutSession,
+  PaymentAttemptStatus, PaymentAttempt,
+} from "./payments";
+
 // --- search (spotlight) ---
 export {
   SearchHitKindSchema, SearchHitSchema, SearchGroupSchema,
