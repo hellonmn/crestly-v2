@@ -69,6 +69,10 @@ export const EnquiryListResponseSchema = z.object({
     admitted: z.number().int(),
     lost: z.number().int(),
     followupsDue: z.number().int(),
+    /** Created during the current calendar month. */
+    thisMonth: z.number().int(),
+    /** admitted ÷ all, rounded to integer percent. */
+    conversion: z.number().int(),
   }),
 });
 export type EnquiryListResponse = z.infer<typeof EnquiryListResponseSchema>;

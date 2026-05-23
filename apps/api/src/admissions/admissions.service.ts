@@ -26,7 +26,11 @@ export class AdmissionsService {
       }),
     };
 
-    const [total, rows, all, admitted, lost, followupsDue] = await Promise.all([
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [total, rows, all, admitted, lost, followupsDue, thisMonth] = await Promise.all([
       this.prisma.db.admission_enquiries.count({ where }),
       this.prisma.db.admission_enquiries.findMany({
         where,
@@ -42,16 +46,18 @@ export class AdmissionsService {
       this.prisma.db.admission_enquiries.count({ where: { status: "admitted" } }),
       this.prisma.db.admission_enquiries.count({ where: { status: "lost" } }),
       this.prisma.db.admission_enquiries.count({ where: { follow_up_date: { lte: new Date(today) }, status: { notIn: ["admitted", "lost"] } } }),
+      this.prisma.db.admission_enquiries.count({ where: { created_at: { gte: monthStart } } }),
     ]);
 
     const open = all - admitted - lost;
+    const conversion = all > 0 ? Math.round((admitted / all) * 100) : 0;
 
     return {
       items: rows.map(toDto),
       total,
       page: query.page,
       pageSize: query.pageSize,
-      totals: { all, open, admitted, lost, followupsDue },
+      totals: { all, open, admitted, lost, followupsDue, thisMonth, conversion },
     };
   }
 
