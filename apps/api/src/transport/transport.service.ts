@@ -64,8 +64,22 @@ export class TransportService {
       };
     });
 
+    // Totals across the full system (independent of the `q` filter on `items`).
+    const [totalPickups, activePickupsAgg] = await Promise.all([
+      this.prisma.db.pickupPoint.count(),
+      this.prisma.db.student.groupBy({
+        by: ["pickupPointId"],
+        where: { status: "active", pickupPointId: { not: null } },
+        _count: { _all: true },
+      }),
+    ]);
+    const activePickups = activePickupsAgg
+      .filter((s) => s.pickupPointId !== null && s._count._all > 0).length;
+
     return {
       items,
+      totalPickups,
+      activePickups,
       totalStudents: items.reduce((s, i) => s + i.studentCount, 0),
       totalRevenue: items.reduce((s, i) => s + i.revenue, 0),
       totalSlabs: slabs.length,

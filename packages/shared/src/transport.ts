@@ -15,6 +15,10 @@ export type PickupPoint = z.infer<typeof PickupPointSchema>;
 
 export const PickupPointListResponseSchema = z.object({
   items: z.array(PickupPointSchema),
+  /** Total pickups in the system — may exceed items.length when the search is filtered. */
+  totalPickups: z.number().int(),
+  /** Pickups that have at least one active student assigned. */
+  activePickups: z.number().int(),
   totalStudents: z.number().int(),
   totalRevenue: z.number().int(),
   totalSlabs: z.number().int(),
