@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Student, StudentListQuery, StudentListResponse, StudentUpsert } from "@crestly/shared";
+import type {
+  Student, StudentDetail, StudentListQuery, StudentListResponse, StudentUpsert,
+} from "@crestly/shared";
 
 const KEY = ["students"] as const;
 
@@ -21,6 +23,18 @@ export function useStudent(srNumber: number | undefined) {
     enabled: srNumber !== undefined && !Number.isNaN(srNumber),
     queryFn: async () => {
       const { data } = await api.get<Student>(`/students/${srNumber}`);
+      return data;
+    },
+  });
+}
+
+/** Full StudentDetail payload powering the View page. */
+export function useStudentDetail(srNumber: number | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "detail", srNumber],
+    enabled: srNumber !== undefined && !Number.isNaN(srNumber),
+    queryFn: async () => {
+      const { data } = await api.get<StudentDetail>(`/students/${srNumber}/detail`);
       return data;
     },
   });

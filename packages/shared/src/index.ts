@@ -22,6 +22,11 @@ export {
   StudentListQuerySchema,
   StudentListResponseSchema,
   StudentUpsertSchema,
+  StudentFeeBreakdownSchema,
+  StudentHostelInfoSchema,
+  SiblingRowSchema,
+  StudentFamilySummarySchema,
+  StudentDetailSchema,
 } from "./students";
 export type {
   Gender,
@@ -32,6 +37,11 @@ export type {
   StudentListQuery,
   StudentListResponse,
   StudentUpsert,
+  StudentFeeBreakdown,
+  StudentHostelInfo,
+  SiblingRow,
+  StudentFamilySummary,
+  StudentDetail,
 } from "./students";
 
 // --- team / roles / permissions ---

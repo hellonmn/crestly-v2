@@ -3,8 +3,9 @@ import type { Prisma } from "@prisma/client";
 import { RequestPrismaService } from "../prisma/request-prisma.service";
 import type {
   Student, StudentListQuery, StudentListResponse, StudentUpsert,
-  StudentPaymentStatus,
+  StudentPaymentStatus, StudentDetail, StudentFeeBreakdown,
 } from "@crestly/shared";
+import { SessionsService } from "../sessions/sessions.service";
 
 /**
  * Students list. Mirrors filters from erp/students/index.php:
@@ -18,7 +19,10 @@ import type {
  */
 @Injectable()
 export class StudentsService {
-  constructor(private readonly prisma: RequestPrismaService) {}
+  constructor(
+    private readonly prisma: RequestPrismaService,
+    private readonly sessions: SessionsService,
+  ) {}
 
   async list(query: StudentListQuery): Promise<StudentListResponse> {
     const where: Prisma.StudentWhereInput = {
@@ -95,6 +99,190 @@ export class StudentsService {
     });
     if (!row) throw new NotFoundException(`Student #${srNumber} not found`);
     return toDto(row);
+  }
+
+  /**
+   * Full StudentDetail payload powering the View page. Mirrors what
+   * erp/students/view.php joins together (student + pickup + fees +
+   * family + siblings + hostel) so the React page can render in a
+   * single roundtrip.
+   */
+  async detail(srNumber: number): Promise<StudentDetail> {
+    const session = await this.sessions.current();
+
+    const stu = await this.prisma.db.student.findUnique({
+      where: { srNumber },
+      include: {
+        pickupPoint: {
+          select: { name: true, distanceKm: true, latitude: true, longitude: true, googleMapsLink: true },
+        },
+      },
+    });
+    if (!stu) throw new NotFoundException(`Student #${srNumber} not found`);
+
+    // Fees for the current session
+    const feeRow = await this.prisma.db.studentFee.findUnique({
+      where: { srNumber_sessionCode: { srNumber, sessionCode: session.code } },
+    }).catch(() => null);
+
+    // Family + siblings
+    let family: StudentDetail["family"] = null;
+    let siblings: StudentDetail["siblings"] = [];
+    if (stu.familyId) {
+      const fam = await this.prisma.db.siblingFamily.findUnique({ where: { familyId: stu.familyId } });
+      if (fam) {
+        family = {
+          familyId: fam.familyId,
+          fatherName: fam.fatherName,
+          siblingCount: fam.siblingCount ?? 0,
+        };
+        const sibRows = await this.prisma.db.student.findMany({
+          where: { familyId: stu.familyId, srNumber: { not: srNumber } },
+          orderBy: [{ class: "asc" }, { section: "asc" }, { srNumber: "asc" }],
+          select: { srNumber: true, studentName: true, class: true, section: true, status: true },
+        });
+        siblings = sibRows.map((s) => ({
+          srNumber: s.srNumber,
+          studentName: s.studentName,
+          class: s.class,
+          section: s.section,
+          status: s.status,
+        }));
+      }
+    }
+
+    // Hostel info (boarders only)
+    let hostel: StudentDetail["hostel"] = null;
+    if (stu.is_hostel) {
+      const alloc = await this.prisma.db.hostel_allocations.findFirst({
+        where: { sr_number: srNumber, is_current: true },
+        include: { hostel_rooms: true },
+      });
+      if (alloc) {
+        // Roommates list
+        const others = await this.prisma.db.hostel_allocations.findMany({
+          where: { room_no: alloc.room_no, is_current: true, sr_number: { not: srNumber } },
+          include: { students: { select: { studentName: true } } },
+        });
+        hostel = {
+          block: alloc.hostel_rooms.block ?? null,
+          roomNo: alloc.room_no,
+          roomType: alloc.hostel_rooms.room_type ?? null,
+          floor: alloc.hostel_rooms.floor ?? null,
+          roommates: others.length > 0 ? others.map((o) => o.students.studentName).join(", ") : null,
+          bloodGroup: stu.blood_group ?? null,
+          homeCity: stu.home_city ?? null,
+          homeState: stu.home_state ?? null,
+          homeAddress: stu.home_address ?? null,
+        };
+      } else {
+        // Fall back to bare hostel block from per-student fields
+        hostel = {
+          block: null, roomNo: null, roomType: null, floor: null, roommates: null,
+          bloodGroup: stu.blood_group ?? null,
+          homeCity: stu.home_city ?? null,
+          homeState: stu.home_state ?? null,
+          homeAddress: stu.home_address ?? null,
+        };
+      }
+    }
+
+    const fees: StudentFeeBreakdown | null = feeRow
+      ? {
+          sessionCode: feeRow.sessionCode,
+          admissionStatus: feeRow.admissionStatus,
+          siblingDiscountPct: Number(feeRow.siblingDiscountPct),
+          siblingPosition: feeRow.siblingPosition,
+          tuitionOriginal: feeRow.tuitionOriginal,
+          tuitionDiscount: feeRow.tuitionDiscount,
+          tuitionPayable: feeRow.tuitionPayable,
+          annualCharges: feeRow.annualCharges,
+          activityFee: feeRow.activityFee,
+          examFee: feeRow.examFee,
+          transportSlab: feeRow.transportSlab,
+          transportFee: feeRow.transportFee,
+          isHostel: feeRow.is_hostel,
+          roomType: feeRow.room_type ?? null,
+          lodgingDiscountPct: Number(feeRow.lodging_discount_pct),
+          hostelLodging: feeRow.hostel_lodging,
+          hostelMess: feeRow.hostel_mess,
+          hostelCommon: feeRow.hostel_common,
+          hostelOneTime: feeRow.hostel_one_time,
+          yearlyRecurringTotal: feeRow.yearlyRecurringTotal,
+          registrationFee: feeRow.registrationFee,
+          admissionFee: feeRow.admissionFee,
+          cautionMoney: feeRow.cautionMoney,
+          firstYearExtras: feeRow.firstYearExtras,
+          totalThisYear: feeRow.totalThisYear,
+          quarterlyInstallment: feeRow.quarterlyInstallment,
+          monthlyEmi: feeRow.monthlyEmi,
+          paidAmount: feeRow.paidAmount,
+          dueAmount: feeRow.dueAmount,
+          paymentStatus: feeRow.paymentStatus as StudentPaymentStatus,
+        }
+      : null;
+
+    return {
+      srNumber: stu.srNumber,
+      studentName: stu.studentName,
+      fatherName: stu.fatherName,
+      motherName: stu.motherName,
+      dob: stu.dob ? stu.dob.toISOString().slice(0, 10) : null,
+      age: stu.age,
+      gender: stu.gender,
+      bloodGroup: stu.blood_group ?? null,
+      address: stu.address,
+      class: stu.class,
+      section: stu.section,
+      stream: stu.stream ?? null,
+      subStream: stu.sub_stream ?? null,
+      schoolName: stu.schoolName,
+      board: stu.board,
+      status: stu.status,
+      isHostel: stu.is_hostel,
+      familyId: stu.familyId,
+
+      fatherContact: stu.fatherContact,
+      fatherWhatsapp: stu.father_whatsapp ?? null,
+      motherContact: stu.motherContact,
+      motherWhatsapp: stu.mother_whatsapp ?? null,
+      callingNumber: stu.callingNumber,
+      whatsappNumber: stu.whatsappNumber,
+
+      localGuardianName: stu.local_guardian_name ?? null,
+      guardianRelation: stu.guardian_relation ?? null,
+      localGuardianContact: stu.local_guardian_contact ?? null,
+      localGuardianWhatsapp: stu.local_guardian_whatsapp ?? null,
+      localGuardianAddress: stu.local_guardian_address ?? null,
+
+      academicContactPerson: stu.academic_contact_person ?? null,
+      academicCallingNumber: stu.academic_calling_number ?? null,
+      academicWhatsappNumber: stu.academic_whatsapp_number ?? null,
+      feeContactPerson: stu.fee_contact_person ?? null,
+      feeCallingNumber: stu.fee_calling_number ?? null,
+      feeWhatsappNumber: stu.fee_whatsapp_number ?? null,
+
+      pickupPointId: stu.pickupPointId,
+      pickupName: stu.pickupPoint?.name ?? stu.pickup_point_name ?? null,
+      pickupDistanceKm: stu.pickupPoint?.distanceKm
+        ? Number(stu.pickupPoint.distanceKm)
+        : (stu.pickup_distance_km ? Number(stu.pickup_distance_km) : null),
+      pickupLatitude: stu.pickupPoint?.latitude
+        ? Number(stu.pickupPoint.latitude)
+        : (stu.pickup_latitude ? Number(stu.pickup_latitude) : null),
+      pickupLongitude: stu.pickupPoint?.longitude
+        ? Number(stu.pickupPoint.longitude)
+        : (stu.pickup_longitude ? Number(stu.pickup_longitude) : null),
+      pickupMapsLink: stu.pickupPoint?.googleMapsLink ?? stu.pickup_maps_link ?? null,
+
+      hostel,
+      family,
+      siblings,
+      fees,
+
+      createdAt: (stu.createdAt ?? new Date()).toISOString(),
+      updatedAt: (stu.updatedAt ?? new Date()).toISOString(),
+    };
   }
 
   async create(input: StudentUpsert): Promise<Student> {

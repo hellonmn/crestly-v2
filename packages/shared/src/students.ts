@@ -92,3 +92,145 @@ export const StudentUpsertSchema = StudentSchema.omit({
   srNumber: z.number().int().positive().optional(),
 });
 export type StudentUpsert = z.infer<typeof StudentUpsertSchema>;
+
+/* ============================================================
+   StudentDetail — the full payload powering the View page.
+   Superset of StudentSchema with hostel, fees, family + siblings,
+   pickup geometry, additional contacts. Mirrors what PHP's
+   students/view.php joins together so the UI gets all of it
+   in a single roundtrip.
+   ============================================================ */
+
+export const StudentFeeBreakdownSchema = z.object({
+  sessionCode: z.string(),
+  admissionStatus: z.string(),
+  siblingDiscountPct: z.number(),
+  siblingPosition: z.string().nullable(),
+  /** Day-scholar columns */
+  tuitionOriginal: z.number().int(),
+  tuitionDiscount: z.number().int(),
+  tuitionPayable: z.number().int(),
+  annualCharges: z.number().int(),
+  activityFee: z.number().int(),
+  examFee: z.number().int(),
+  transportSlab: z.string().nullable(),
+  transportFee: z.number().int(),
+  /** Hosteller-only columns */
+  isHostel: z.boolean(),
+  roomType: z.string().nullable(),
+  lodgingDiscountPct: z.number(),
+  hostelLodging: z.number().int(),
+  hostelMess: z.number().int(),
+  hostelCommon: z.number().int(),
+  hostelOneTime: z.number().int(),
+  /** Year totals */
+  yearlyRecurringTotal: z.number().int(),
+  registrationFee: z.number().int(),
+  admissionFee: z.number().int(),
+  cautionMoney: z.number().int(),
+  firstYearExtras: z.number().int(),
+  totalThisYear: z.number().int(),
+  quarterlyInstallment: z.number().int(),
+  monthlyEmi: z.number().int(),
+  paidAmount: z.number().int(),
+  dueAmount: z.number().int(),
+  paymentStatus: StudentPaymentStatusSchema,
+});
+export type StudentFeeBreakdown = z.infer<typeof StudentFeeBreakdownSchema>;
+
+export const StudentHostelInfoSchema = z.object({
+  block: z.string().nullable(),
+  roomNo: z.string().nullable(),
+  roomType: z.string().nullable(),
+  floor: z.string().nullable(),
+  roommates: z.string().nullable(),
+  bloodGroup: z.string().nullable(),
+  homeCity: z.string().nullable(),
+  homeState: z.string().nullable(),
+  homeAddress: z.string().nullable(),
+});
+export type StudentHostelInfo = z.infer<typeof StudentHostelInfoSchema>;
+
+export const SiblingRowSchema = z.object({
+  srNumber: z.number().int(),
+  studentName: z.string(),
+  class: z.string(),
+  section: z.string(),
+  status: StudentStatusSchema,
+});
+export type SiblingRow = z.infer<typeof SiblingRowSchema>;
+
+export const StudentFamilySummarySchema = z.object({
+  familyId: z.number().int(),
+  fatherName: z.string().nullable(),
+  siblingCount: z.number().int(),
+});
+export type StudentFamilySummary = z.infer<typeof StudentFamilySummarySchema>;
+
+export const StudentDetailSchema = z.object({
+  // Core (mirrors StudentSchema)
+  srNumber: z.number().int(),
+  studentName: z.string(),
+  fatherName: z.string().nullable(),
+  motherName: z.string().nullable(),
+  dob: z.string().nullable(),
+  age: z.number().int().nullable(),
+  gender: GenderSchema.nullable(),
+  bloodGroup: z.string().nullable(),
+  address: z.string().nullable(),
+  class: z.string(),
+  section: z.string(),
+  stream: z.string().nullable(),
+  subStream: z.string().nullable(),
+  schoolName: z.string().nullable(),
+  board: z.string().nullable(),
+  status: StudentStatusSchema,
+  isHostel: z.boolean(),
+  familyId: z.number().int().nullable(),
+
+  // Parent + extra contact numbers
+  fatherContact: z.string().nullable(),
+  fatherWhatsapp: z.string().nullable(),
+  motherContact: z.string().nullable(),
+  motherWhatsapp: z.string().nullable(),
+  callingNumber: z.string().nullable(),
+  whatsappNumber: z.string().nullable(),
+
+  // Local guardian (relevant for hostellers + day scholars alike)
+  localGuardianName: z.string().nullable(),
+  guardianRelation: z.string().nullable(),
+  localGuardianContact: z.string().nullable(),
+  localGuardianWhatsapp: z.string().nullable(),
+  localGuardianAddress: z.string().nullable(),
+
+  // Specialised contacts (academic / fee)
+  academicContactPerson: z.string().nullable(),
+  academicCallingNumber: z.string().nullable(),
+  academicWhatsappNumber: z.string().nullable(),
+  feeContactPerson: z.string().nullable(),
+  feeCallingNumber: z.string().nullable(),
+  feeWhatsappNumber: z.string().nullable(),
+
+  // Pickup point — prefer joined pickup_points row, fall back to inline
+  pickupPointId: z.number().int().nullable(),
+  pickupName: z.string().nullable(),
+  pickupDistanceKm: z.number().nullable(),
+  pickupLatitude: z.number().nullable(),
+  pickupLongitude: z.number().nullable(),
+  pickupMapsLink: z.string().nullable(),
+
+  // Hostel-specific block (boarders only)
+  hostel: StudentHostelInfoSchema.nullable(),
+
+  // Family summary + siblings (excluding this student)
+  family: StudentFamilySummarySchema.nullable(),
+  siblings: z.array(SiblingRowSchema),
+
+  // Fee breakdown for the current session (or null if no fee row yet)
+  fees: StudentFeeBreakdownSchema.nullable(),
+
+  // Audit
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type StudentDetail = z.infer<typeof StudentDetailSchema>;

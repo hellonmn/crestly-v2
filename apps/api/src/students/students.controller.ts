@@ -28,6 +28,12 @@ export class StudentsController {
     return this.students.findOne(srNumber);
   }
 
+  @Get(":srNumber/detail")
+  @RequirePerm("students.view")
+  detail(@Param("srNumber", ParseIntPipe) srNumber: number) {
+    return this.students.detail(srNumber);
+  }
+
   @Post()
   @RequirePerm("students.manage")
   @UsePipes(new ZodPipe(StudentUpsertSchema))
