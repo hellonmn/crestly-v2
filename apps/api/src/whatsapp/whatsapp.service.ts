@@ -174,6 +174,29 @@ export class WhatsappService {
 
   // --- log ---
 
+  // --- settings-page stats ---
+
+  async stats(): Promise<import("@crestly/shared").WaStats> {
+    const since = new Date(Date.now() - 24 * 3600 * 1000);
+    const [settings, templatesCount, templatesApproved, bindingsActive, sent24h, failed24h] = await Promise.all([
+      this.getSettings(),
+      this.prisma.db.wa_templates.count(),
+      this.prisma.db.wa_templates.count({ where: { status: "APPROVED" } }),
+      this.prisma.db.wa_action_bindings.count({ where: { is_enabled: true } }),
+      this.prisma.db.wa_message_log.count({ where: { status: "sent",   created_at: { gte: since } } }),
+      this.prisma.db.wa_message_log.count({ where: { status: "failed", created_at: { gte: since } } }),
+    ]);
+    return {
+      enabled: settings.enabled,
+      phoneNumberIdSet: !!settings.phoneNumberId,
+      templatesCount,
+      templatesApproved,
+      bindingsActive,
+      sent24h,
+      failed24h,
+    };
+  }
+
   async log(limit = 200): Promise<WaLogEntry[]> {
     const rows = await this.prisma.db.wa_message_log.findMany({
       orderBy: { id: "desc" },

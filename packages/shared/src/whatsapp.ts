@@ -68,6 +68,18 @@ export const WaLogEntrySchema = z.object({
 });
 export type WaLogEntry = z.infer<typeof WaLogEntrySchema>;
 
+/** Settings-page stat tiles. */
+export const WaStatsSchema = z.object({
+  enabled: z.boolean(),
+  phoneNumberIdSet: z.boolean(),
+  templatesCount: z.number().int().nonnegative(),
+  templatesApproved: z.number().int().nonnegative(),
+  bindingsActive: z.number().int().nonnegative(),
+  sent24h: z.number().int().nonnegative(),
+  failed24h: z.number().int().nonnegative(),
+});
+export type WaStats = z.infer<typeof WaStatsSchema>;
+
 /** Action keys that the app can dispatch. Mirrors the PHP catalog. */
 export const WA_ACTIONS = [
   "fee.payment.received",
@@ -78,3 +90,121 @@ export const WA_ACTIONS = [
   "salary.paid",
 ] as const;
 export type WaActionKey = (typeof WA_ACTIONS)[number];
+
+/**
+ * Action catalog — drives the Templates & Bindings UI. Each action
+ * lists its dispatch-context fields (for the dynamic variable map)
+ * and the recipient-phone fields available on that event. Keep in
+ * sync with erp/lib/whatsapp.php :: wa_action_catalogue().
+ */
+export interface WaActionDef {
+  label: string;
+  description: string;
+  /** Field → human label, for the dynamic variable-mapping dropdown. */
+  fields: Record<string, string>;
+  /** Field → human label, for the "Recipient field" dropdown. */
+  recipientOptions: Record<string, string>;
+}
+
+export const WA_ACTION_CATALOG: Record<WaActionKey, WaActionDef> = {
+  "fee.payment.received": {
+    label: "Fee payment received (receipt)",
+    description: "Sent to the parent every time a payment is recorded in fee ledger.",
+    fields: {
+      student_name:  "Student's full name",
+      class:         "Class (e.g. 6th)",
+      section:       "Section (A/B/C)",
+      amount:        "Amount paid (₹)",
+      paid_on:       "Payment date",
+      method:        "Payment method (cash/upi/…)",
+      receipt_no:    "Receipt number",
+      remaining_due: "Balance after this payment",
+      school_name:   "School name (from settings)",
+    },
+    recipientOptions: {
+      father_whatsapp:        "Father · WhatsApp",
+      mother_whatsapp:        "Mother · WhatsApp",
+      father_contact:         "Father · contact",
+      mother_contact:         "Mother · contact",
+      local_guardian_contact: "Local guardian",
+    },
+  },
+  "fee.reminder": {
+    label: "Fee reminder (balance due)",
+    description: "Manual nudge from student profile / fee ledger when balance is outstanding.",
+    fields: {
+      student_name: "Student's full name",
+      class:        "Class (e.g. 6th)",
+      section:      "Section",
+      due_amount:   "Outstanding balance (₹)",
+      session_code: "Academic session (e.g. 2025-26)",
+      school_name:  "School name",
+    },
+    recipientOptions: {
+      father_whatsapp:        "Father · WhatsApp",
+      mother_whatsapp:        "Mother · WhatsApp",
+      father_contact:         "Father · contact",
+      mother_contact:         "Mother · contact",
+      local_guardian_contact: "Local guardian",
+    },
+  },
+  "voucher.pending_approval": {
+    label: "Voucher pending your approval",
+    description: "Sent to each approver when a new voucher is raised.",
+    fields: {
+      voucher_no:  "Voucher number",
+      title:       "Voucher title",
+      amount:      "Amount (₹)",
+      created_by:  "Raised by",
+      school_name: "School name",
+    },
+    recipientOptions: {
+      approver_phone: "Approver · phone",
+    },
+  },
+  "voucher.paid": {
+    label: "Voucher marked paid",
+    description: "Sent to voucher creator + approvers after payment.",
+    fields: {
+      voucher_no:  "Voucher number",
+      title:       "Voucher title",
+      amount:      "Amount (₹)",
+      paid_on:     "Paid date",
+      method:      "Payment method",
+      school_name: "School name",
+    },
+    recipientOptions: {
+      recipient_phone: "Recipient · phone",
+    },
+  },
+  "student.absent": {
+    label: "Student marked absent",
+    description: "Sent to parents on absent days.",
+    fields: {
+      student_name: "Student name",
+      class:        "Class",
+      section:      "Section",
+      date:         "Date",
+      school_name:  "School name",
+    },
+    recipientOptions: {
+      father_whatsapp: "Father · WhatsApp",
+      mother_whatsapp: "Mother · WhatsApp",
+      father_contact:  "Father · contact",
+      mother_contact:  "Mother · contact",
+    },
+  },
+  "salary.paid": {
+    label: "Salary credited",
+    description: "Sent to staff when monthly salary is paid out.",
+    fields: {
+      staff_name:  "Staff name",
+      amount:      "Net amount (₹)",
+      month:       "Month (e.g. May 2026)",
+      school_name: "School name",
+    },
+    recipientOptions: {
+      staff_phone: "Staff · phone",
+    },
+  },
+};

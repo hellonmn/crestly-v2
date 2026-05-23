@@ -22,6 +22,10 @@ export class WhatsappController {
   @RequirePerm("whatsapp.configure")
   settings() { return this.wa.getSettings(); }
 
+  @Get("stats")
+  @RequirePerm("whatsapp.configure")
+  stats() { return this.wa.stats(); }
+
   @Put("settings")
   @RequirePerm("whatsapp.configure")
   updateSettings(@Body(new ZodPipe(WaSettingsUpdateSchema)) body: WaSettingsUpdate, @CurrentUser() user: User) {

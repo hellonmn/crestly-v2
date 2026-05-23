@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
-  WaActionBinding, WaBindingUpsertInput, WaLogEntry, WaSettings, WaSettingsUpdate, WaTemplate,
+  WaActionBinding, WaBindingUpsertInput, WaLogEntry, WaSettings, WaSettingsUpdate, WaStats, WaTemplate,
 } from "@crestly/shared";
 
 const KEY = ["whatsapp"] as const;
@@ -10,6 +10,12 @@ export function useWaSettings() {
   return useQuery({
     queryKey: [...KEY, "settings"],
     queryFn: async () => (await api.get<WaSettings>("/whatsapp/settings")).data,
+  });
+}
+export function useWaStats() {
+  return useQuery({
+    queryKey: [...KEY, "stats"],
+    queryFn: async () => (await api.get<WaStats>("/whatsapp/stats")).data,
   });
 }
 export function useSaveWaSettings() {

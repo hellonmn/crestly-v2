@@ -411,11 +411,14 @@ export type {
 export {
   WaSettingsSchema, WaSettingsUpdateSchema, WaTemplateSchema,
   WaActionBindingSchema, WaBindingUpsertSchema, WaTestInputSchema, WaLogEntrySchema,
+  WaStatsSchema,
   WA_ACTIONS,
+  WA_ACTION_CATALOG,
 } from "./whatsapp";
 export type {
   WaSettings, WaSettingsUpdate, WaTemplate,
   WaActionBinding, WaBindingUpsertInput, WaTestInput, WaLogEntry, WaActionKey,
+  WaStats, WaActionDef,
 } from "./whatsapp";
 
 // --- features (platform + per-school catalog) ---
