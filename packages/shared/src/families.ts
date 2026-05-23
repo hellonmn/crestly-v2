@@ -7,6 +7,12 @@ export const FamilyMemberSchema = z.object({
   section: z.string(),
   status: z.string(),
   dob: z.string().nullable(),
+  /** Per-row sibling discount % (0 for eldest, ~12 for 2nd, ~18 for 3rd+). */
+  siblingDiscountPct: z.number().nonnegative(),
+  /** Current-session payment status, if a fee row exists. */
+  paymentStatus: z.string().nullable(),
+  /** Outstanding due in rupees, if a fee row exists. */
+  dueAmount: z.number().int().nonnegative(),
 });
 export type FamilyMember = z.infer<typeof FamilyMemberSchema>;
 
@@ -17,9 +23,14 @@ export const FamilySchema = z.object({
   siblingCount: z.number().int().nullable(),
   membersText: z.string().nullable(),
   enrolledCount: z.number().int().nonnegative(),
+  /** Members whose status is "active" (subset of enrolledCount). */
+  activeCount: z.number().int().nonnegative(),
   members: z.array(FamilyMemberSchema),
   /** Total tuition discount given this session across all enrolled siblings. */
   yearlyDiscountTotal: z.number().int().nonnegative(),
+  /** Sum of `total_this_year` across enrolled members — the denominator for the
+   *  "of ₹X total fee" line under the discount card. */
+  totalYearlyFee: z.number().int().nonnegative(),
 });
 export type Family = z.infer<typeof FamilySchema>;
 

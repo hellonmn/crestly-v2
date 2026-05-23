@@ -129,8 +129,10 @@ export class FamiliesService {
     if (!row) throw new NotFoundException(`Family #${familyId} not found`);
 
     const session = await this.sessions.current().catch(() => null);
+    // Pull every enrolled member (any status) so the page can render dropped /
+    // transferred siblings with greyed-out pills.
     const members = await this.prisma.db.student.findMany({
-      where: { familyId, status: "active" },
+      where: { familyId },
       select: {
         srNumber: true,
         studentName: true,
@@ -139,18 +141,29 @@ export class FamiliesService {
         status: true,
         dob: true,
       },
-      orderBy: { dob: "asc" },
+      orderBy: { dob: "asc" }, // eldest first — drives "1st / 2nd / 3rd child" labels
     });
 
-    const discount = session
-      ? await this.prisma.db.studentFee.aggregate({
-          _sum: { tuitionDiscount: true },
-          where: {
-            sessionCode: session.code,
-            student: { familyId },
+    const memberSrs = members.map((m) => m.srNumber);
+    const feeRows = session && memberSrs.length
+      ? await this.prisma.db.studentFee.findMany({
+          where: { sessionCode: session.code, srNumber: { in: memberSrs } },
+          select: {
+            srNumber: true,
+            siblingDiscountPct: true,
+            tuitionDiscount: true,
+            totalThisYear: true,
+            dueAmount: true,
+            paymentStatus: true,
           },
         })
-      : { _sum: { tuitionDiscount: 0 } };
+      : [];
+    const feeBySr = new Map<number, typeof feeRows[number]>();
+    for (const f of feeRows) feeBySr.set(f.srNumber, f);
+
+    const yearlyDiscountTotal = feeRows.reduce((s, f) => s + f.tuitionDiscount, 0);
+    const totalYearlyFee = feeRows.reduce((s, f) => s + f.totalThisYear, 0);
+    const activeCount = members.filter((m) => m.status === "active").length;
 
     return {
       familyId: row.familyId,
@@ -159,15 +172,23 @@ export class FamiliesService {
       siblingCount: row.siblingCount,
       membersText: row.membersText,
       enrolledCount: members.length,
-      members: members.map((m) => ({
-        srNumber: m.srNumber,
-        studentName: m.studentName,
-        class: m.class,
-        section: m.section,
-        status: m.status,
-        dob: m.dob ? m.dob.toISOString().slice(0, 10) : null,
-      })),
-      yearlyDiscountTotal: (discount._sum.tuitionDiscount as number | null) ?? 0,
+      activeCount,
+      members: members.map((m) => {
+        const f = feeBySr.get(m.srNumber);
+        return {
+          srNumber: m.srNumber,
+          studentName: m.studentName,
+          class: m.class,
+          section: m.section,
+          status: m.status,
+          dob: m.dob ? m.dob.toISOString().slice(0, 10) : null,
+          siblingDiscountPct: f ? Number(f.siblingDiscountPct) : 0,
+          paymentStatus: f?.paymentStatus ?? null,
+          dueAmount: f?.dueAmount ?? 0,
+        };
+      }),
+      yearlyDiscountTotal,
+      totalYearlyFee,
     };
   }
 
