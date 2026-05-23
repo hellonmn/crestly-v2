@@ -410,23 +410,34 @@ function SectionEditModal({
   const save   = useSaveSection(initial?.id);
   const remove = useDeleteSection();
 
-  // Filter team to teaching staff in the matching wing. The PHP version
-  // also clamps by wing — we mirror it as a soft hint (show ALL eligible
-  // teachers, but tag wing-matches first).
+  // Show ALL active staff in the picker — the PHP version is permissive
+  // here because every school has a different idea of what counts as a
+  // "teacher". We rank wing-matches + teaching designations to the top
+  // and let the search filter span name / designation / department.
   const eligibleTeachers = useMemo(() => {
-    const teachers = team.filter((u) =>
-      (u.designation ?? "").toLowerCase().includes("teacher") ||
-      (u.roleSlug ?? "") === "teacher" ||
-      (u.classTeacherOf ?? "") !== "",
-    );
     const q = teacherSearch.trim().toLowerCase();
     const matches = q
-      ? teachers.filter((u) => u.name.toLowerCase().includes(q) || (u.designation ?? "").toLowerCase().includes(q))
-      : teachers;
-    // Wing-matching teachers first, then the rest.
-    const inWing = matches.filter((u) => wingFor(u.department ?? "") === wing);
-    const others = matches.filter((u) => !inWing.includes(u));
-    return [...inWing, ...others].slice(0, 50);
+      ? team.filter((u) =>
+          u.name.toLowerCase().includes(q) ||
+          (u.designation ?? "").toLowerCase().includes(q) ||
+          (u.department ?? "").toLowerCase().includes(q),
+        )
+      : team;
+
+    const isTeacher = (u: TeamMember) =>
+      (u.designation ?? "").toLowerCase().includes("teacher") ||
+      (u.roleSlug ?? "") === "teacher" ||
+      !!u.classTeacherOf;
+
+    // Rank: wing+teacher (top) → wing-only → teacher-only → everyone else.
+    const score = (u: TeamMember): number => {
+      const w = wingFor(u.department ?? "") === wing && !!wing ? 2 : 0;
+      const t = isTeacher(u) ? 1 : 0;
+      return w + t;
+    };
+    return [...matches]
+      .sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name))
+      .slice(0, 50);
   }, [team, teacherSearch, wing]);
 
   const selectedTeacher = teacherUserId
