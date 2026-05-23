@@ -111,7 +111,7 @@ export function LeaveApplyPage() {
           <div className="form-section__head"><span className="form-section__num">03</span><span className="form-section__title">Reason &amp; documents</span></div>
           <textarea className="input input--area" rows={4} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Brief reason…" />
           <p className="muted body-s" style={{ marginTop: 8 }}>
-            File upload lands in Batch F (cross-cutting). For now, mention any document in the reason.
+            Mention any supporting document in the reason — file uploads aren't wired here yet.
           </p>
         </div>
 

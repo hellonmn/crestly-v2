@@ -296,9 +296,6 @@ export function StudentsListPage() {
           <button type="button" className="btn btn--ghost btn--sm" onClick={resetAll}>Reset</button>
           {isFullAccess && (
             <>
-              <button type="button" className="btn btn--ink btn--sm" title="Coming soon" disabled>
-                Export
-              </button>
               <Link to="/import?type=student" className="btn btn--ink btn--sm" title="Bulk import students from CSV">
                 <Icon name="download" size={14} />
                 Import

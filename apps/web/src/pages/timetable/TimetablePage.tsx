@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { useTimetable } from "./hooks";
+import { useClasses } from "@/pages/classes/hooks";
+import { useTeamList } from "@/pages/team/hooks";
 import type { TimetableCell } from "@crestly/shared";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -12,6 +14,26 @@ export function TimetablePage() {
   const [classSlug, setClassSlug] = useState("");
   const [section, setSection] = useState("");
   const [teacherUserId, setTeacherUserId] = useState<string>("");
+
+  const { data: classes } = useClasses();
+  const { data: team } = useTeamList({ page: 1, pageSize: 500, status: "active" });
+
+  // Sections of the currently-picked class — derived from the classes payload.
+  const sectionOptions = useMemo(() => {
+    if (!classSlug || !classes) return [] as string[];
+    const cls = classes.find((c) => c.slug === classSlug);
+    return cls?.sections.map((s) => s.code) ?? [];
+  }, [classSlug, classes]);
+
+  // Only show staff with a teacher-ish role (designation contains "teacher",
+  // role slug = "teacher", or class-teacher assignment set).
+  const teacherOptions = useMemo(() => {
+    return (team?.items ?? []).filter((u) =>
+      (u.designation ?? "").toLowerCase().includes("teacher") ||
+      u.roleSlug === "teacher" ||
+      !!u.classTeacherOf,
+    );
+  }, [team]);
 
   const query = scope === "section"
     ? (classSlug && section ? { class: classSlug, section } : null)
@@ -59,11 +81,48 @@ export function TimetablePage() {
         </div>
         {scope === "section" ? (
           <>
-            <input className="input mono" placeholder="Class" value={classSlug} onChange={(e) => setClassSlug(e.target.value)} style={{ maxWidth: 120 }} />
-            <input className="input mono" placeholder="Section" value={section} onChange={(e) => setSection(e.target.value)} style={{ maxWidth: 120 }} />
+            <select
+              className="select"
+              value={classSlug}
+              onChange={(e) => { setClassSlug(e.target.value); setSection(""); }}
+              style={{ maxWidth: 160 }}
+              aria-label="Class"
+            >
+              <option value="">— Class —</option>
+              {(classes ?? []).map((c) => (
+                <option key={c.id} value={c.slug}>{c.slug}</option>
+              ))}
+            </select>
+            <select
+              className="select"
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              disabled={!classSlug || sectionOptions.length === 0}
+              style={{ maxWidth: 140 }}
+              aria-label="Section"
+            >
+              <option value="">{classSlug ? "— Section —" : "Pick class first"}</option>
+              {sectionOptions.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </>
         ) : (
-          <input className="input" placeholder="Teacher user id" value={teacherUserId} onChange={(e) => setTeacherUserId(e.target.value)} style={{ maxWidth: 200 }} />
+          <select
+            className="select"
+            value={teacherUserId}
+            onChange={(e) => setTeacherUserId(e.target.value)}
+            style={{ maxWidth: 260 }}
+            aria-label="Teacher"
+          >
+            <option value="">— Teacher —</option>
+            {teacherOptions.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+                {u.department && ` · ${u.department}`}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
