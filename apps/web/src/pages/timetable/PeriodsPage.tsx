@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
@@ -10,7 +10,6 @@ import {
 } from "./hooks";
 import { QueryError } from "@/components/QueryError";
 import { Anim } from "@/components/Anim";
-import { AnimPopup } from "@/components/AnimPopup";
 import { useAuth } from "@/lib/auth-store";
 import { getErrorMessage } from "@/lib/api";
 import type { TimetablePeriod } from "@crestly/shared";
@@ -50,12 +49,6 @@ export function PeriodsPage() {
   const { data: periods, isLoading, error, refetch, isFetching } = periodsQuery;
 
   const [editing, setEditing] = useState<TimetablePeriod | "new" | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
-
-  function notify(msg: string) {
-    setFlash(msg);
-    setTimeout(() => setFlash(null), 3000);
-  }
 
   const teaching = (periods ?? []).filter((p) => !p.isBreak).length;
   const breaks   = (periods ?? []).filter((p) =>  p.isBreak).length;
@@ -85,12 +78,6 @@ export function PeriodsPage() {
         }
       />
 
-      <AnimPopup
-        open={!!flash}
-        type="success"
-        message={flash ?? ""}
-        onClose={() => setFlash(null)}
-      />
 
       <QueryError error={error} refetch={refetch} isFetching={isFetching} label="periods" />
 
@@ -197,9 +184,6 @@ export function PeriodsPage() {
         <PeriodModal
           initial={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
-          onSaved={(action) =>
-            notify(action === "deleted" ? "Period deleted." : "Period saved.")
-          }
         />
       )}
 
@@ -213,11 +197,10 @@ export function PeriodsPage() {
 /* ------------------------------------------------------------------ */
 
 function PeriodModal({
-  initial, onClose, onSaved,
+  initial, onClose,
 }: {
   initial: TimetablePeriod | null;
   onClose: () => void;
-  onSaved: (action: "saved" | "deleted") => void;
 }) {
   const isNew = !initial;
   const [periodNo, setPeriodNo] = useState<string>(String(initial?.periodNo ?? 0));
@@ -227,11 +210,21 @@ function PeriodModal({
   const [isBreak, setIsBreak]   = useState(initial?.isBreak ?? false);
   const [sortOrder, setSortOrder] = useState<string>(String(initial?.sortOrder ?? 0));
   const [err, setErr] = useState<string | null>(null);
+  /** When a mutation succeeds, swap the modal body for an animation
+   *  + label, keep the modal frame and size, auto-close after a beat. */
+  const [done, setDone] = useState<null | { type: "success" | "delete"; label: string }>(null);
 
   const save   = useSavePeriod(initial?.id);
   const remove = useDeletePeriod();
 
   const mins = durationMinutes(startTime, endTime);
+
+  // After a success/delete is shown, hold the animation for 1.6s then close.
+  useEffect(() => {
+    if (!done) return;
+    const t = window.setTimeout(onClose, 1600);
+    return () => window.clearTimeout(t);
+  }, [done, onClose]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -245,8 +238,7 @@ function PeriodModal({
         isBreak,
         sortOrder: Number(sortOrder) || 0,
       });
-      onSaved("saved");
-      onClose();
+      setDone({ type: "success", label: "Period saved" });
     } catch (e) {
       setErr(getErrorMessage(e, "Failed to save"));
     }
@@ -257,11 +249,44 @@ function PeriodModal({
     if (!confirm(`Delete period "${initial.name}"? All cells in this row are deleted too.`)) return;
     try {
       await remove.mutateAsync(initial.id);
-      onSaved("deleted");
-      onClose();
+      setDone({ type: "delete", label: "Period deleted" });
     } catch (e) {
       setErr(getErrorMessage(e, "Failed to delete"));
     }
+  }
+
+  // When `done` is set, the modal frame stays — same width, same chrome —
+  // but the body is replaced with a centered animation. Title + actions
+  // are hidden so nothing distracts from the moment.
+  if (done) {
+    return (
+      <Modal open title="" onClose={onClose}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "8px 0 16px",
+            minHeight: 220,
+          }}
+        >
+          <Anim name={done.type} size={180} />
+          <div
+            style={{
+              marginTop: 4,
+              fontFamily: "var(--font-display, system-ui)",
+              fontWeight: 700,
+              fontSize: 17,
+              letterSpacing: "-0.01em",
+              color: "var(--ink)",
+            }}
+          >
+            {done.label}
+          </div>
+        </div>
+      </Modal>
+    );
   }
 
   return (
