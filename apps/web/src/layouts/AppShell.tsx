@@ -43,9 +43,9 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
 
 /* Local overrides — by default @crestly/design hides the topbar on
    desktop (≥960px) because the sidebar carries the user widget there.
-   We've moved the user widget to the topbar across all viewports per
-   the latest design call, so re-show the topbar at every width and
-   pad the desktop layout to clear it. */
+   We've moved the user widget to the topbar at all viewports, so:
+   re-show the topbar everywhere AND hide its brand on desktop so it
+   doesn't duplicate the sidebar's brand block. */
 const SHELL_OVERRIDES_CSS = `
   @media (min-width: 960px) {
     .topbar {
@@ -53,11 +53,19 @@ const SHELL_OVERRIDES_CSS = `
       position: sticky;
       top: 0;
       z-index: 50;
+      justify-content: flex-end;        /* user widget pinned right */
+      padding: 8px 20px;
+      background: var(--white);
+      border-bottom: 1px solid var(--rule);
     }
-    .app {
-      /* Add a tiny top gap so the sticky topbar doesn't overlap the
-         scroll edge of the main column. */
-      padding-top: 0;
-    }
+    /* Hide the small "Crestly." brand inside the topbar on desktop —
+       the sidebar brand-block already shows the full school name. */
+    .topbar .topbar__brand { display: none; }
+  }
+
+  /* On mobile (<960px) the sidebar slides over as a drawer, so the
+     topbar's brand is the only visible school identity. */
+  @media (max-width: 959.98px) {
+    .topbar .topbar__brand { display: inline-flex; align-items: center; gap: 8px; }
   }
 `;
