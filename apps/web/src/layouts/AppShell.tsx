@@ -46,11 +46,26 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
    carry the user widget there. We've moved both the user widget AND
    the brand-block into the topbar across every viewport. */
 const SHELL_OVERRIDES_CSS = `
-  /* Eliminate any html/body gap behind the sticky topbar — both
-     surfaces should share a colour so a 1-pixel rounding never shows
-     a darker strip at the very top of the viewport. */
-  html { background: var(--white); }
-  body { background: var(--cream-soft); }
+  /* Kill the dark band at the top once and for all. The default
+     stylesheet leaves <html> transparent which lets the platform/
+     browser default (often a dark theme) bleed in above sticky
+     elements. Force every layer white at the very top. */
+  html, body { background: var(--white); }
+  body { min-height: 100vh; }
+  /* A zero-pixel ::before just anchors the body's bg colour at the
+     top of the viewport even when the page is empty. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: var(--white);
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  /* The main content area keeps the cream-soft surface. */
+  .app, .app__main { background: var(--cream-soft); }
 
   @media (min-width: 960px) {
     .topbar {
@@ -64,12 +79,10 @@ const SHELL_OVERRIDES_CSS = `
       background: var(--white);
       border-bottom: 1px solid var(--rule);
     }
-    /* Brand sits on the left at its natural width; user widget on
-       the right via margin-left: auto on the spotlight container. */
     .topbar .topbar__brand { flex: 0 0 auto; }
 
-    /* Sidebar's huge brand-block is redundant on desktop now —
-       only show it inside the mobile drawer. */
+    /* Sidebar's huge brand-block is redundant on desktop — only show
+       it inside the mobile drawer. */
     .app__nav .brand-block--mobile-only { display: none; }
     .app__nav { padding-top: 12px; }
   }
