@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { QueryError } from "@/components/QueryError";
@@ -13,6 +13,10 @@ import {
 import { getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth-store";
 import type { Holiday, HolidayType } from "@crestly/shared";
+
+type ViewMode = "list" | "calendar";
+const VIEW_STORE_KEY = "crestly.holidays.view";
+const DOW_HEADERS = ["S", "M", "T", "W", "T", "F", "S"];
 
 /* ============================================================
    Holidays calendar — ports erp/holidays/index.php verbatim.
@@ -66,8 +70,19 @@ export function HolidaysPage() {
   const fallbackAY = useMemo(() => defaultAY(), []);
   const [academicYear, setAcademicYear] = useState<number>(fallbackAY);
   const { data, isLoading, error, refetch, isFetching } = useHolidayCalendar(academicYear);
-  const [editing, setEditing] = useState<Holiday | "new" | null>(null);
+  /** "new" = blank form; { defaultDate } = blank form prefilled with that ISO date;
+   *  Holiday = edit existing; null = closed. */
+  const [editing, setEditing] = useState<Holiday | "new" | { defaultDate: string } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+
+  // Persist the view choice across reloads — admins typically have a preference.
+  const [view, setView] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "list";
+    return (window.localStorage.getItem(VIEW_STORE_KEY) as ViewMode) || "list";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(VIEW_STORE_KEY, view); } catch { /* private mode */ }
+  }, [view]);
 
   const currentAY = data?.academicYear ?? academicYear;
   const ayLabel = `${currentAY}–${String(currentAY + 1).slice(-2)}`;
@@ -107,6 +122,24 @@ export function HolidaysPage() {
         }
         actions={
           <>
+            <div className="seg" role="tablist" aria-label="View">
+              <button
+                type="button"
+                className={`seg__btn ${view === "list" ? "is-on" : ""}`}
+                onClick={() => setView("list")}
+                aria-pressed={view === "list"}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                className={`seg__btn ${view === "calendar" ? "is-on" : ""}`}
+                onClick={() => setView("calendar")}
+                aria-pressed={view === "calendar"}
+              >
+                Calendar
+              </button>
+            </div>
             <select
               className="select"
               value={academicYear}
@@ -175,7 +208,7 @@ export function HolidaysPage() {
         <div className="card" style={{ marginTop: 18 }}>
           <Skeleton.Title width="30%" />
         </div>
-      ) : (
+      ) : view === "list" ? (
         <div className="grid grid--cols-3 grid--gap-md" style={{ marginTop: 18 }}>
           {byMonth.map((m) => (
             <MonthCard
@@ -188,11 +221,27 @@ export function HolidaysPage() {
             />
           ))}
         </div>
+      ) : (
+        <div className="grid grid--cols-3 grid--gap-md hol-cal-grid" style={{ marginTop: 18 }}>
+          {byMonth.map((m) => (
+            <MonthCalendar
+              key={`${m.year}-${m.month}`}
+              year={m.year}
+              month={m.month}
+              label={m.label}
+              items={m.items}
+              canManage={canManage}
+              onPickHoliday={(h) => setEditing(h)}
+              onPickEmptyDay={(iso) => setEditing({ defaultDate: iso })}
+            />
+          ))}
+        </div>
       )}
 
       {editing && (
         <HolidayEditModal
-          initial={editing === "new" ? null : editing}
+          initial={editing && editing !== "new" && "id" in editing ? editing : null}
+          defaultDate={editing && editing !== "new" && "defaultDate" in editing ? editing.defaultDate : undefined}
           onClose={() => setEditing(null)}
           onSaved={(action) =>
             notifySaved(action === "deleted" ? "Holiday deleted." : "Holiday saved.")
@@ -295,14 +344,19 @@ function MonthCard({
 /* ------------------------------------------------------------------ */
 
 function HolidayEditModal({
-  initial, onClose, onSaved,
+  initial, defaultDate, onClose, onSaved,
 }: {
   initial: Holiday | null;
+  /** Prefill the date field when adding a new holiday (e.g. user
+   *  clicked a specific day in the calendar). Ignored when editing. */
+  defaultDate?: string;
   onClose: () => void;
   onSaved: (action: "saved" | "deleted") => void;
 }) {
   const isNew = !initial;
-  const [holidayDate, setDate] = useState(initial?.holidayDate ?? new Date().toISOString().slice(0, 10));
+  const [holidayDate, setDate] = useState(
+    initial?.holidayDate ?? defaultDate ?? new Date().toISOString().slice(0, 10),
+  );
   const [name, setName]   = useState(initial?.name ?? "");
   const [type, setType]   = useState<HolidayType>(initial?.type ?? "public");
   const [isPaid, setIsPaid] = useState(initial?.isPaid ?? true);
@@ -431,6 +485,136 @@ function HolidayEditModal({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Month calendar (mini-calendar grid view)                             */
+/* ------------------------------------------------------------------ */
+
+function MonthCalendar({
+  year, month, label, items, canManage, onPickHoliday, onPickEmptyDay,
+}: {
+  year: number;
+  /** 1-12 (calendar month, not 0-indexed). */
+  month: number;
+  label: string;
+  items: Holiday[];
+  canManage: boolean;
+  onPickHoliday: (h: Holiday) => void;
+  onPickEmptyDay: (iso: string) => void;
+}) {
+  // Map ISO date → first holiday on that date (multiple are rare but possible).
+  const byDate = useMemo(() => {
+    const m = new Map<string, Holiday>();
+    for (const h of items) if (!m.has(h.holidayDate)) m.set(h.holidayDate, h);
+    return m;
+  }, [items]);
+
+  // 6-row × 7-col grid. First cell = the Sunday on/before the 1st of the month.
+  // Cells outside this month render as muted "spacer" days so we never have a
+  // ragged-edge calendar.
+  const cells = useMemo(() => {
+    const first = new Date(Date.UTC(year, month - 1, 1));
+    const startOffset = first.getUTCDay();   // 0 = Sunday
+    const out: { iso: string; day: number; inMonth: boolean; isSun: boolean }[] = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(Date.UTC(year, month - 1, 1 - startOffset + i));
+      const iso = d.toISOString().slice(0, 10);
+      out.push({
+        iso,
+        day: d.getUTCDate(),
+        inMonth: d.getUTCMonth() === month - 1 && d.getUTCFullYear() === year,
+        isSun: d.getUTCDay() === 0,
+      });
+    }
+    // Trim trailing all-out-of-month row if the month only needed 5 rows
+    // (e.g. Feb in a non-leap year starting Sun).
+    while (out.length > 35 && !out.slice(35, 42).some((c) => c.inMonth)) {
+      out.length = 35;
+    }
+    return out;
+  }, [year, month]);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="card hol-cal">
+      <div className="hol-cal__head">
+        <h3 className="hol-cal__title">{label}</h3>
+        <span className="muted body-s">
+          {items.length} holiday{items.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      <div className="hol-cal__grid">
+        {DOW_HEADERS.map((d, i) => (
+          <div key={i} className="hol-cal__dh">{d}</div>
+        ))}
+        {cells.map((c) => {
+          const holiday = byDate.get(c.iso);
+          const isToday = c.iso === todayIso && c.inMonth;
+          const classes = [
+            "hol-cal__cell",
+            c.inMonth ? "" : "hol-cal__cell--out",
+            c.isSun && c.inMonth ? "hol-cal__cell--sun" : "",
+            holiday ? `hol-cal__cell--has hol-cal__cell--${holiday.type}` : "",
+            isToday ? "hol-cal__cell--today" : "",
+            (holiday || (canManage && c.inMonth)) ? "hol-cal__cell--clickable" : "",
+          ].filter(Boolean).join(" ");
+
+          const onClick = !c.inMonth
+            ? undefined
+            : holiday
+              ? () => onPickHoliday(holiday)
+              : canManage
+                ? () => onPickEmptyDay(c.iso)
+                : undefined;
+
+          const title = holiday
+            ? `${holiday.name} · ${TYPE_LABEL[holiday.type]}`
+            : c.isSun && c.inMonth
+              ? "Sunday"
+              : undefined;
+
+          return (
+            <div
+              key={c.iso}
+              className={classes}
+              onClick={onClick}
+              role={onClick ? "button" : undefined}
+              tabIndex={onClick ? 0 : undefined}
+              onKeyDown={onClick ? (e) => {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+              } : undefined}
+              title={title}
+            >
+              <span className="hol-cal__num">{c.day}</span>
+              {holiday && c.inMonth && (
+                <span className="hol-cal__pin" aria-hidden="true" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {items.length > 0 && (
+        <div className="hol-cal__legend">
+          {items.map((h) => (
+            <button
+              key={h.id}
+              type="button"
+              className={`hol-cal__chip hol-cal__chip--${h.type}`}
+              onClick={() => onPickHoliday(h)}
+              title={`${h.name} · ${TYPE_LABEL[h.type]}`}
+            >
+              <span className="hol-cal__chipd">{Number(h.holidayDate.slice(8, 10))}</span>
+              <span className="hol-cal__chipn">{h.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const HOL_CSS = `
   .hol-month { padding: 16px; }
   .hol-month__head {
@@ -502,4 +686,117 @@ const HOL_CSS = `
   }
   .icon-btn:hover { background: var(--cream-soft); color: var(--ink); }
   .icon-btn:disabled { opacity: 0.5; cursor: wait; }
+
+  /* ─── Calendar view ─────────────────────────────────────── */
+
+  .hol-cal-grid { /* Slightly tighter inter-card gap so 3 columns fit nicely */ }
+  .hol-cal { padding: 14px 14px 12px; }
+  .hol-cal__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .hol-cal__title {
+    margin: 0; font-size: 13px; font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--ink);
+  }
+
+  .hol-cal__grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;
+  }
+  .hol-cal__dh {
+    text-align: center; font-size: 10px; font-weight: 700;
+    color: var(--ink-40); padding: 4px 0;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: .08em;
+  }
+  .hol-cal__cell {
+    aspect-ratio: 1;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--ink);
+    background: var(--white);
+    border: 1px solid transparent;
+    transition: background .12s ease, border-color .12s ease, transform .12s ease;
+  }
+  .hol-cal__cell--out { color: var(--ink-40); opacity: .35; }
+  .hol-cal__cell--sun { background: var(--cream-soft); color: var(--ink-60); }
+  .hol-cal__cell--today {
+    box-shadow: 0 0 0 2px var(--orange) inset;
+    font-weight: 700;
+  }
+  .hol-cal__cell--clickable { cursor: pointer; }
+  .hol-cal__cell--clickable:hover {
+    background: var(--tint-wheat);
+    border-color: var(--orange);
+    transform: scale(1.04);
+  }
+  .hol-cal__cell--clickable:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--orange) inset;
+  }
+  .hol-cal__num { line-height: 1; }
+  .hol-cal__pin {
+    position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%;
+    background: currentColor; opacity: .8;
+  }
+
+  /* Type-specific fill — keeps the day number readable. */
+  .hol-cal__cell--public {
+    background: #dcfce7;                  /* mint-50ish */
+    color: #166534;                       /* mint-800 */
+    border-color: rgba(22, 101, 52, .25);
+    font-weight: 600;
+  }
+  .hol-cal__cell--school {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: rgba(30, 64, 175, .25);
+    font-weight: 600;
+  }
+  .hol-cal__cell--optional {
+    background: var(--tint-wheat, #fcebd6);
+    color: #92400e;
+    border-color: rgba(146, 64, 14, .3);
+    font-weight: 600;
+  }
+  .hol-cal__cell--weekend {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: rgba(55, 65, 81, .25);
+    font-weight: 600;
+  }
+
+  /* Legend chips below the grid — one per holiday, click jumps to edit. */
+  .hol-cal__legend {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--rule-soft);
+  }
+  .hol-cal__chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px 3px 4px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--white);
+    font-size: 11px; line-height: 1.2;
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease;
+  }
+  .hol-cal__chip:hover { background: var(--cream-soft); border-color: var(--orange); }
+  .hol-cal__chipd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px;
+    border-radius: 50%;
+    font-family: var(--font-mono, monospace);
+    font-size: 9.5px; font-weight: 700;
+  }
+  .hol-cal__chipn { color: var(--ink); }
+  .hol-cal__chip--public   .hol-cal__chipd { background: #dcfce7; color: #166534; }
+  .hol-cal__chip--school   .hol-cal__chipd { background: #dbeafe; color: #1e40af; }
+  .hol-cal__chip--optional .hol-cal__chipd { background: var(--tint-wheat, #fcebd6); color: #92400e; }
+  .hol-cal__chip--weekend  .hol-cal__chipd { background: #f3f4f6; color: #374151; }
 `;
