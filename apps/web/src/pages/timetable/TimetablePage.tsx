@@ -4,6 +4,7 @@ import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { Modal } from "@/components/Modal";
 import { QueryError } from "@/components/QueryError";
+import { Skeleton } from "@/components/Skeleton";
 import {
   useClearCell, useEligibleTeachers, useSaveCell, useSmartAllot, useTimetable,
 } from "./hooks";
@@ -265,7 +266,13 @@ export function TimetablePage() {
           <p className="muted">Pick a teacher to see their weekly schedule.</p>
         </div>
       ) : isLoading ? (
-        <p className="muted">Loading…</p>
+        <div className="card card--tight">
+          <div className="tt-cap" style={{ alignItems: "center" }}>
+            <Skeleton width={140} height={10} />
+            <Skeleton width={80} height={26} style={{ borderRadius: 6 }} />
+          </div>
+          <TimetableGridSkeleton />
+        </div>
       ) : noPeriods ? null : data ? (
         <div className="card card--tight">
           <div className="tt-cap">
@@ -893,6 +900,15 @@ function SmartAllotModal({
         </div>
       </div>
 
+      {scope === "all" && allot.isPending && (
+        <div className="banner banner--info" style={{ marginBottom: 12 }}>
+          <Icon name="info" size={14} />
+          <span>
+            Generating across every section — this can take a minute. Don't close this tab; the result will appear here when done.
+          </span>
+        </div>
+      )}
+
       <label className="field" style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
         <input
           type="checkbox"
@@ -1029,6 +1045,51 @@ function TeacherCombo({
         </div>
       )}
     </div>
+  );
+}
+
+/* ============================================================
+   Grid skeleton — period header column + 6 day columns × 5 rows,
+   shimmer animation. Renders inside .tt-card while the query is
+   pending so the empty page doesn't flash a bare "Loading…".
+   ============================================================ */
+
+function TimetableGridSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="tt-wrap">
+      <div
+        className="tt-grid"
+        style={{ gridTemplateColumns: `120px repeat(${DAYS.length}, minmax(0, 1fr))` }}
+        aria-busy="true"
+      >
+        <div className="tt-cell tt-cell--corner" />
+        {DAYS.map((d) => (
+          <div key={d.idx} className="tt-cell tt-cell--dhead">{d.short}</div>
+        ))}
+
+        {Array.from({ length: rows }).map((_, r) => (
+          <SkeletonGridRow key={r} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SkeletonGridRow() {
+  return (
+    <>
+      <div className="tt-cell tt-cell--phead">
+        <Skeleton width={28} height={12} />
+        <Skeleton width="70%" height={9} style={{ marginTop: 4 }} />
+        <Skeleton width="50%" height={8} style={{ marginTop: 4 }} />
+      </div>
+      {DAYS.map((d) => (
+        <div key={d.idx} className="tt-cell tt-cell--slot">
+          <Skeleton width="80%" height={10} />
+          <Skeleton width="55%" height={9} style={{ marginTop: 6 }} />
+        </div>
+      ))}
+    </>
   );
 }
 

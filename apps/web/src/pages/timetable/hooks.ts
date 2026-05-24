@@ -125,8 +125,14 @@ export function useClearCell() {
 export function useSmartAllot() {
   const qc = useQueryClient();
   return useMutation({
+    /** Scope='all' can be slow (60 sections × 8 periods × 6 days of
+     *  writes). Give it 5 minutes before we time out client-side; the
+     *  server runs the writes in a single transaction so it's usually
+     *  much faster, but proxies/CDNs in front can be cranky. */
     mutationFn: async (input: SmartAllotInput) =>
-      (await api.post<SmartAllotResult>("/timetable/smart-allot", input)).data,
+      (await api.post<SmartAllotResult>("/timetable/smart-allot", input, {
+        timeout: 5 * 60 * 1000,
+      })).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...KEY, "grid"] });
       qc.invalidateQueries({ queryKey: [...KEY, "workload"] });

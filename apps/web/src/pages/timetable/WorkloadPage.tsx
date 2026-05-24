@@ -3,6 +3,7 @@ import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { StatTile } from "@/components/StatTile";
 import { QueryError } from "@/components/QueryError";
+import { Skeleton } from "@/components/Skeleton";
 import { useWorkload } from "./hooks";
 
 export function WorkloadPage() {
@@ -31,14 +32,23 @@ export function WorkloadPage() {
 
       <QueryError error={error} refetch={refetch} isFetching={isFetching} label="workload" />
 
-      <div className="grid grid--cols-4 grid--gap-sm">
-        <StatTile tint="mustard" icon="team" label="TEACHERS" value={String(totals.teachers)} delta="active" />
-        <StatTile tint="mint" icon="check" label="ALLOTTED" value={String(totals.allotted)} delta="" />
-        <StatTile tint="wheat" icon="alert" label="FREE" value={String(totals.free)} delta="no slots" />
-        <StatTile tint="sky" icon="features" label="AVG UTIL" value={`${totals.avgUtil}%`} delta="across teachers" />
-      </div>
+      {isLoading ? (
+        <Skeleton.StatRow count={4} />
+      ) : (
+        <div className="grid grid--cols-4 grid--gap-sm">
+          <StatTile tint="mustard" icon="team" label="TEACHERS" value={String(totals.teachers)} delta="active" />
+          <StatTile tint="mint" icon="check" label="ALLOTTED" value={String(totals.allotted)} delta="" />
+          <StatTile tint="wheat" icon="alert" label="FREE" value={String(totals.free)} delta="no slots" />
+          <StatTile tint="sky" icon="features" label="AVG UTIL" value={`${totals.avgUtil}%`} delta="across teachers" />
+        </div>
+      )}
 
       <div className="table-card">
+        {isLoading ? (
+          <div style={{ padding: 16 }}>
+            <Skeleton.Table rows={8} cols={5} />
+          </div>
+        ) : (
         <table className="data-table">
           <thead>
             <tr>
@@ -50,7 +60,6 @@ export function WorkloadPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={5} style={{ padding: 32, textAlign: "center", color: "var(--ink-40)" }}>Loading…</td></tr>}
             {data?.map((r) => (
               <tr key={r.userId}>
                 <td className="td-name">{r.name}{r.designation && <div className="muted body-s">{r.designation}</div>}</td>
@@ -74,6 +83,7 @@ export function WorkloadPage() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </>
   );

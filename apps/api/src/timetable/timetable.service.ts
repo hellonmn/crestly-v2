@@ -658,16 +658,35 @@ export class TimetableService {
     };
 
     // Greedy placement, day-major, run-by-run.
+    //
+    // PERF NOTE: writes are collected into `pendingUpdates` / `pendingCreates`
+    // and flushed in a single transaction at the end. The old code awaited
+    // each cell write individually, which for "all sections" scope (60+
+    // sections × 8 periods × 6 days ≈ 3000 writes) took longer than the
+    // browser HTTP timeout — the user saw "Generating…" forever even though
+    // the server eventually finished, and only saw the data after a reload.
     let filled = 0;
     let unassigned = 0;
     let bi = 0;
+
+    type CellData = {
+      subject_id: number;
+      teacher_user_id: number | null;
+      subject_id2: number | null;
+      teacher_user_id2: number | null;
+    };
+    const pendingUpdates: { id: number; data: CellData }[] = [];
+    const pendingCreates: (CellData & {
+      session_code: string; class_slug: string; section_code: string;
+      day_of_week: number; period_id: number;
+    })[] = [];
 
     for (const d of DAYS) {
       for (const run of runs) {
         const rl = run.length;
         let pos = 0;
         while (pos < rl && bi < blockQueue.length) {
-          let size = blockQueue[bi]!.size;
+          const size = blockQueue[bi]!.size;
           // Won't fit — try to pull a smaller block forward.
           if (pos + size > rl) {
             let swap = -1;
@@ -724,31 +743,23 @@ export class TimetableService {
                 busy.add(`${pick2}|${d}|${pid}`);
                 load.set(pick2, (load.get(pick2) ?? 0) + 1);
               }
-              // Upsert (we know it's either empty or non-existent in the existing map).
+              const data: CellData = {
+                subject_id: subId,
+                teacher_user_id: pick ?? null,
+                subject_id2: sub2,
+                teacher_user_id2: pick2,
+              };
               const ex = existing.get(`${d}|${pid}`);
               if (ex) {
-                await this.prisma.db.timetable_entries.update({
-                  where: { id: ex.id },
-                  data: {
-                    subject_id: subId,
-                    teacher_user_id: pick ?? null,
-                    subject_id2: sub2,
-                    teacher_user_id2: pick2,
-                  },
-                });
+                pendingUpdates.push({ id: ex.id, data });
               } else {
-                await this.prisma.db.timetable_entries.create({
-                  data: {
-                    session_code: sessionCode,
-                    class_slug: classSlug,
-                    section_code: sectionCode,
-                    day_of_week: d,
-                    period_id: pid,
-                    subject_id: subId,
-                    teacher_user_id: pick ?? null,
-                    subject_id2: sub2,
-                    teacher_user_id2: pick2,
-                  },
+                pendingCreates.push({
+                  session_code: sessionCode,
+                  class_slug: classSlug,
+                  section_code: sectionCode,
+                  day_of_week: d,
+                  period_id: pid,
+                  ...data,
                 });
               }
               filled++;
@@ -758,6 +769,20 @@ export class TimetableService {
           bi++;
         }
       }
+    }
+
+    // Flush all writes in a single transaction. Bulk-create first
+    // (createMany is one round-trip), then run the updates in parallel
+    // (Prisma will pipeline them on the same connection).
+    if (pendingCreates.length > 0) {
+      await this.prisma.db.timetable_entries.createMany({ data: pendingCreates });
+    }
+    if (pendingUpdates.length > 0) {
+      await this.prisma.db.$transaction(
+        pendingUpdates.map((u) =>
+          this.prisma.db.timetable_entries.update({ where: { id: u.id }, data: u.data }),
+        ),
+      );
     }
 
     if (filled === 0) return { ok: true, filled: 0, unassigned: 0, msg: "All slots already filled." };

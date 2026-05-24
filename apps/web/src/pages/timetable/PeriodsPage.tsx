@@ -92,12 +92,16 @@ export function PeriodsPage() {
       <QueryError error={error} refetch={refetch} isFetching={isFetching} label="periods" />
 
       {/* Stat tiles */}
-      <div className="grid grid--cols-4 grid--gap-sm">
-        <Tile tint="mint" label="TOTAL PERIODS" value={String(total)} delta={`${teaching} teaching`} />
-        <Tile tint="sky" label="TEACHING SLOTS" value={String(teaching)} delta="rows in each day" />
-        <Tile tint="wheat" label="BREAKS" value={String(breaks)} delta="lunch / recess" />
-        <Tile tint="mustard" label="DAY LENGTH" value={fmtMinutes(dayMins)} delta="first start → last end" />
-      </div>
+      {isLoading ? (
+        <Skeleton.StatRow count={4} />
+      ) : (
+        <div className="grid grid--cols-4 grid--gap-sm">
+          <Tile tint="mint" label="TOTAL PERIODS" value={String(total)} delta={`${teaching} teaching`} />
+          <Tile tint="sky" label="TEACHING SLOTS" value={String(teaching)} delta="rows in each day" />
+          <Tile tint="wheat" label="BREAKS" value={String(breaks)} delta="lunch / recess" />
+          <Tile tint="mustard" label="DAY LENGTH" value={fmtMinutes(dayMins)} delta="first start → last end" />
+        </div>
+      )}
 
       {/* Periods table */}
       <div className="table-card">
