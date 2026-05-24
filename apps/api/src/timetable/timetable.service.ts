@@ -7,6 +7,11 @@ import type {
   TimetableCellUpsert,
   TimetableGridQuery,
   TimetableGridResponse,
+  TimetableMasterCell,
+  TimetableMasterCellDelete,
+  TimetableMasterCellWrite,
+  TimetableMasterResponse,
+  TimetableMasterSection,
   TimetablePeriod,
   TimetablePeriodUpsert,
   WorkloadRow,
@@ -187,6 +192,170 @@ export class TimetableService {
   async deleteCell(id: number): Promise<{ ok: true }> {
     await this.prisma.db.timetable_entries.delete({ where: { id } });
     return { ok: true };
+  }
+
+  /* ============================================================
+     Master grid — single view across every section, where each
+     cell collapses days 1..6 into one. Used by schools whose
+     timetable is the same every day Mon–Sat.
+     ============================================================ */
+
+  async master(): Promise<TimetableMasterResponse> {
+    const session = await this.sessions.current();
+    const periods = await this.periods();
+
+    // Sections come from the classes/sections tables — these are the
+    // columns of the master grid, in their canonical order.
+    const classes = await this.prisma.db.classes.findMany({
+      orderBy: [{ sort_order: "asc" }, { id: "asc" }],
+      include: {
+        sections: { orderBy: { code: "asc" } },
+      },
+    });
+
+    const sections: TimetableMasterSection[] = [];
+    for (const cls of classes) {
+      for (const s of cls.sections) {
+        sections.push({
+          classSlug: cls.slug,
+          sectionCode: s.code,
+          label: `${cls.slug}-${s.code}`,
+          classSortOrder: cls.sort_order,
+        });
+      }
+    }
+
+    // Pull every cell for the session — including all 6 day variants —
+    // and collapse them per (section, period).
+    const allCells = await this.prisma.db.timetable_entries.findMany({
+      where: { session_code: session.code },
+      include: {
+        exam_subjects_timetable_entries_subject_idToexam_subjects: { select: { id: true, name: true } },
+        users_timetable_entries_teacher_user_idTousers: { select: { id: true, name: true } },
+        exam_subjects_timetable_entries_subject_id2Toexam_subjects: { select: { id: true, name: true } },
+        users_timetable_entries_teacher_user_id2Tousers: { select: { id: true, name: true } },
+      },
+    });
+
+    // Group by (classSlug | sectionCode | periodId).
+    type Group = typeof allCells;
+    const groups = new Map<string, Group>();
+    for (const c of allCells) {
+      const k = `${c.class_slug}|${c.section_code}|${c.period_id}`;
+      const arr = groups.get(k) ?? [];
+      arr.push(c);
+      groups.set(k, arr);
+    }
+
+    function pickFingerprint(row: (typeof allCells)[number]): string {
+      return [
+        row.subject_id ?? "",
+        row.teacher_user_id ?? "",
+        row.subject_id2 ?? "",
+        row.teacher_user_id2 ?? "",
+        row.room ?? "",
+        row.notes ?? "",
+      ].join("·");
+    }
+
+    const cells: TimetableMasterCell[] = [];
+    for (const [, rows] of groups) {
+      const first = rows[0];
+      const fp = pickFingerprint(first);
+      const mixed = rows.some((r) => pickFingerprint(r) !== fp);
+      cells.push({
+        classSlug: first.class_slug,
+        sectionCode: first.section_code,
+        periodId: first.period_id,
+        subjectId: first.subject_id,
+        subjectName: first.exam_subjects_timetable_entries_subject_idToexam_subjects?.name ?? null,
+        teacherUserId: first.teacher_user_id,
+        teacherName: first.users_timetable_entries_teacher_user_idTousers?.name ?? null,
+        subjectId2: first.subject_id2,
+        subjectName2: first.exam_subjects_timetable_entries_subject_id2Toexam_subjects?.name ?? null,
+        teacherUserId2: first.teacher_user_id2,
+        teacherName2: first.users_timetable_entries_teacher_user_id2Tousers?.name ?? null,
+        room: first.room,
+        notes: first.notes,
+        mixed,
+        daysFilled: rows.length,
+      });
+    }
+
+    return { sessionCode: session.code, periods, sections, cells };
+  }
+
+  /**
+   * Write a master cell — fans out the same (subject, teacher, room, notes)
+   * to all 6 working days (Mon=1 .. Sat=6) for the given (section, period).
+   * Existing entries on those days are overwritten; missing ones are created.
+   */
+  async upsertMasterCell(input: TimetableMasterCellWrite): Promise<{ ok: true; daysWritten: number }> {
+    const session = await this.sessions.current();
+    const period = await this.prisma.db.timetable_periods.findUnique({
+      where: { id: input.periodId },
+    });
+    if (!period) throw new NotFoundException("Period not found");
+    if (period.is_break) {
+      throw new BadRequestException("Cannot assign a cell to a break period");
+    }
+
+    const days = [1, 2, 3, 4, 5, 6] as const;
+    for (const day of days) {
+      const existing = await this.prisma.db.timetable_entries.findFirst({
+        where: {
+          session_code: session.code,
+          class_slug: input.classSlug,
+          section_code: input.sectionCode,
+          day_of_week: day,
+          period_id: input.periodId,
+        },
+      });
+      if (existing) {
+        await this.prisma.db.timetable_entries.update({
+          where: { id: existing.id },
+          data: {
+            subject_id: input.subjectId,
+            teacher_user_id: input.teacherUserId,
+            subject_id2: input.subjectId2 ?? null,
+            teacher_user_id2: input.teacherUserId2 ?? null,
+            room: input.room ?? null,
+            notes: input.notes ?? null,
+          },
+        });
+      } else {
+        await this.prisma.db.timetable_entries.create({
+          data: {
+            session_code: session.code,
+            class_slug: input.classSlug,
+            section_code: input.sectionCode,
+            day_of_week: day,
+            period_id: input.periodId,
+            subject_id: input.subjectId,
+            teacher_user_id: input.teacherUserId,
+            subject_id2: input.subjectId2 ?? null,
+            teacher_user_id2: input.teacherUserId2 ?? null,
+            room: input.room ?? null,
+            notes: input.notes ?? null,
+          },
+        });
+      }
+    }
+    return { ok: true, daysWritten: days.length };
+  }
+
+  /** Clear a master cell — deletes all 6 days for (section, period). */
+  async deleteMasterCell(input: TimetableMasterCellDelete): Promise<{ ok: true; daysDeleted: number }> {
+    const session = await this.sessions.current();
+    const res = await this.prisma.db.timetable_entries.deleteMany({
+      where: {
+        session_code: session.code,
+        class_slug: input.classSlug,
+        section_code: input.sectionCode,
+        period_id: input.periodId,
+      },
+    });
+    return { ok: true, daysDeleted: res.count };
   }
 
   async workload(): Promise<WorkloadRow[]> {

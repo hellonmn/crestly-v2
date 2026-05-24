@@ -4,14 +4,18 @@ import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { Modal } from "@/components/Modal";
 import {
-  useDeleteCell, useSaveCell, useTimetable,
+  useDeleteCell, useDeleteMasterCell, useSaveCell, useSaveMasterCell,
+  useTimetable, useTimetableMaster,
 } from "./hooks";
 import { useClasses } from "@/pages/classes/hooks";
 import { usePickableTeam } from "@/pages/team/hooks";
 import { useExamSubjects } from "@/pages/exams/hooks";
 import { useAuth } from "@/lib/auth-store";
 import { getErrorMessage } from "@/lib/api";
-import type { TimetableCell, TimetablePeriod } from "@crestly/shared";
+import type {
+  TimetableCell, TimetableMasterCell,
+  TimetablePeriod,
+} from "@crestly/shared";
 
 /* ============================================================
    Timetable grid — section view is click-to-edit (when the user
@@ -37,15 +41,20 @@ type EditTarget = {
   cell: TimetableCell | null;
 };
 
+type Scope = "section" | "teacher" | "master";
+
 export function TimetablePage() {
   const { user } = useAuth();
   const canManage = (user?.permissions ?? []).includes("timetable.manage");
 
-  const [scope, setScope]   = useState<"section" | "teacher">("section");
+  const [scope, setScope]   = useState<Scope>("section");
   const [classSlug, setClassSlug] = useState("");
   const [section, setSection]     = useState("");
   const [teacherUserId, setTeacherUserId] = useState<string>("");
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [masterEditing, setMasterEditing] = useState<{
+    classSlug: string; sectionCode: string; period: TimetablePeriod; cell: TimetableMasterCell | null;
+  } | null>(null);
   const [flash, setFlash]     = useState<string | null>(null);
 
   const { data: classes } = useClasses();
@@ -152,9 +161,17 @@ export function TimetablePage() {
           >
             By teacher
           </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${scope === "master" ? "btn--ink" : "btn--ghost"}`}
+            onClick={() => setScope("master")}
+            title="Single grid for schools whose timetable doesn't change Mon–Sat"
+          >
+            Master
+          </button>
         </div>
 
-        {scope === "section" ? (
+        {scope === "section" && (
           <>
             <select
               className="select"
@@ -182,7 +199,8 @@ export function TimetablePage() {
               ))}
             </select>
           </>
-        ) : (
+        )}
+        {scope === "teacher" && (
           <select
             className="select"
             value={teacherUserId}
@@ -199,8 +217,14 @@ export function TimetablePage() {
             ))}
           </select>
         )}
+        {scope === "master" && (
+          <span className="muted body-s" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icon name="info" size={14} />
+            One grid for the whole school — saving a cell applies the same subject + teacher to <b>every day Mon–Sat</b>.
+          </span>
+        )}
 
-        {coverage && (
+        {scope !== "master" && coverage && (
           <div className="tt-coverage">
             <span className="label">COVERAGE</span>
             <b>{coverage.filled}/{coverage.totalSlots}</b>
@@ -209,7 +233,7 @@ export function TimetablePage() {
         )}
       </div>
 
-      {!query && !isLoading && (
+      {scope !== "master" && !query && !isLoading && (
         <div className="card" style={{ padding: "40px 24px", textAlign: "center" }}>
           <div className="label" style={{ marginBottom: 6 }}>NOTHING LOADED</div>
           <div className="muted body-s">
@@ -218,9 +242,16 @@ export function TimetablePage() {
         </div>
       )}
 
-      {isLoading && <p className="muted">Loading…</p>}
+      {scope !== "master" && isLoading && <p className="muted">Loading…</p>}
 
-      {data && (
+      {scope === "master" && (
+        <MasterGridSection
+          canManage={canManage}
+          onOpenCell={(t) => setMasterEditing(t)}
+        />
+      )}
+
+      {scope !== "master" && data && (
         <div className="tt-card card">
           {editable && (
             <div className="tt-hint">
@@ -302,6 +333,20 @@ export function TimetablePage() {
           onClose={() => setEditing(null)}
           onSaved={(action) =>
             notify(action === "deleted" ? "Cell cleared." : "Cell saved.")
+          }
+        />
+      )}
+
+      {masterEditing && (
+        <MasterCellEditorModal
+          target={masterEditing}
+          onClose={() => setMasterEditing(null)}
+          onSaved={(action, days) =>
+            notify(
+              action === "deleted"
+                ? `Cleared from ${days} day${days === 1 ? "" : "s"}.`
+                : `Saved across ${days} day${days === 1 ? "" : "s"}.`,
+            )
           }
         />
       )}
@@ -563,6 +608,402 @@ function CellEditorModal({
 }
 
 /* ------------------------------------------------------------------ */
+/* Master grid (periods × all sections, Mon–Sat shared)                */
+/* ------------------------------------------------------------------ */
+
+type MasterEditTarget = {
+  classSlug: string;
+  sectionCode: string;
+  period: TimetablePeriod;
+  cell: TimetableMasterCell | null;
+};
+
+function MasterGridSection({
+  canManage, onOpenCell,
+}: {
+  canManage: boolean;
+  onOpenCell: (t: MasterEditTarget) => void;
+}) {
+  const { data, isLoading } = useTimetableMaster();
+
+  // Lookup by "classSlug|sectionCode|periodId".
+  const cellByKey = useMemo(() => {
+    const m = new Map<string, TimetableMasterCell>();
+    for (const c of data?.cells ?? []) {
+      m.set(`${c.classSlug}|${c.sectionCode}|${c.periodId}`, c);
+    }
+    return m;
+  }, [data]);
+
+  // Coverage across the whole school.
+  const coverage = useMemo(() => {
+    if (!data) return null;
+    const teaching = data.periods.filter((p) => !p.isBreak).length;
+    const total = teaching * data.sections.length;
+    if (total === 0) return null;
+    const filled = data.cells.filter((c) => {
+      const p = data.periods.find((pp) => pp.id === c.periodId);
+      return p && !p.isBreak && (c.subjectId != null || c.teacherUserId != null);
+    }).length;
+    return { total, filled, pct: Math.round((filled / total) * 100) };
+  }, [data]);
+
+  if (isLoading) return <p className="muted">Loading…</p>;
+  if (!data) return null;
+
+  if (data.sections.length === 0) {
+    return (
+      <div className="card" style={{ padding: "40px 24px", textAlign: "center" }}>
+        <div className="label" style={{ marginBottom: 6 }}>NO SECTIONS</div>
+        <div className="muted body-s">
+          Add classes and sections first under <b>Classes & Sections</b>.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tt-card card">
+      <div className="tt-hint">
+        <Icon name={canManage ? "edit" : "info"} size={12} />
+        <span>
+          {canManage
+            ? "Click any cell to assign — the same subject + teacher applies to every day Mon–Sat."
+            : "Read-only view. The same assignment shows for every day Mon–Sat."}
+          {coverage && (
+            <>
+              {"  ·  "}
+              <b>{coverage.filled}/{coverage.total}</b> slots filled ({coverage.pct}%)
+            </>
+          )}
+        </span>
+      </div>
+
+      <div className="tt-scroll">
+        <table className="tt-grid tt-grid--master">
+          <thead>
+            <tr>
+              <th className="tt-grid__period-head">Period</th>
+              {data.sections.map((s) => (
+                <th key={s.label} title={s.label}>{s.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.periods.map((p) => (
+              <tr key={p.id} className={p.isBreak ? "tt-row--break" : ""}>
+                <th className="tt-grid__period">
+                  <div className="tt-grid__period-name">{p.name}</div>
+                  <div className="muted mono tt-grid__period-time">
+                    {p.startTime.slice(0, 5)}–{p.endTime.slice(0, 5)}
+                  </div>
+                </th>
+                {data.sections.map((s) => {
+                  if (p.isBreak) {
+                    return (
+                      <td key={s.label} className="tt-grid__cell tt-grid__cell--break">
+                        <span>break</span>
+                      </td>
+                    );
+                  }
+                  const cell = cellByKey.get(`${s.classSlug}|${s.sectionCode}|${p.id}`) ?? null;
+                  const isEditable = canManage;
+                  return (
+                    <td
+                      key={s.label}
+                      className={
+                        "tt-grid__cell " +
+                        (cell ? "tt-grid__cell--filled " : "tt-grid__cell--empty ") +
+                        (isEditable ? "tt-grid__cell--editable " : "") +
+                        (cell?.mixed ? "tt-grid__cell--mixed " : "")
+                      }
+                      onClick={isEditable ? () => onOpenCell({
+                        classSlug: s.classSlug, sectionCode: s.sectionCode, period: p, cell,
+                      }) : undefined}
+                      role={isEditable ? "button" : undefined}
+                      tabIndex={isEditable ? 0 : undefined}
+                      onKeyDown={isEditable ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpenCell({
+                            classSlug: s.classSlug, sectionCode: s.sectionCode, period: p, cell,
+                          });
+                        }
+                      } : undefined}
+                    >
+                      {cell ? (
+                        <MasterCellContent cell={cell} />
+                      ) : isEditable ? (
+                        <div className="tt-cell-add">
+                          <Icon name="plus" size={12} /> assign
+                        </div>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function MasterCellContent({ cell }: { cell: TimetableMasterCell }) {
+  return (
+    <div className="tt-cell">
+      {cell.mixed && (
+        <div className="tt-cell__mixed-flag" title="Days don't all match — saving here will overwrite every day">
+          <Icon name="alert" size={10} /> mixed
+        </div>
+      )}
+      <div className="tt-cell__subject">{cell.subjectName ?? "—"}</div>
+      <div className="tt-cell__teacher muted">{cell.teacherName ?? "—"}</div>
+      {(cell.subjectName2 || cell.teacherName2) && (
+        <div className="tt-cell__second muted">
+          + {cell.subjectName2 ?? "—"}
+          {cell.teacherName2 && ` · ${cell.teacherName2}`}
+        </div>
+      )}
+      {cell.room && (
+        <div className="tt-cell__room mono muted">
+          <Icon name="map-pin" size={10} /> {cell.room}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MasterCellEditorModal({
+  target, onClose, onSaved,
+}: {
+  target: MasterEditTarget;
+  onClose: () => void;
+  onSaved: (action: "saved" | "deleted", days: number) => void;
+}) {
+  const { cell, period, classSlug, sectionCode } = target;
+
+  const { data: allSubjects } = useExamSubjects();
+  const { data: team }        = usePickableTeam();
+  const save                  = useSaveMasterCell();
+  const remove                = useDeleteMasterCell();
+
+  const eligibleSubjects = useMemo(() => {
+    const list = allSubjects ?? [];
+    const mapped = list.filter((s) => s.classes.includes(classSlug));
+    return mapped.length > 0 ? mapped : list;
+  }, [allSubjects, classSlug]);
+
+  const teachers = useMemo(() => {
+    return (team?.items ?? [])
+      .filter((u) =>
+        (u.designation ?? "").toLowerCase().includes("teacher") ||
+        u.roleSlug === "teacher" ||
+        !!u.classTeacherOf,
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [team]);
+
+  const [subjectId, setSubjectId]       = useState<string>(cell?.subjectId       ? String(cell.subjectId)       : "");
+  const [teacherUserId, setTeacherUid]  = useState<string>(cell?.teacherUserId   ? String(cell.teacherUserId)   : "");
+  const [subjectId2, setSubjectId2]     = useState<string>(cell?.subjectId2      ? String(cell.subjectId2)      : "");
+  const [teacherUserId2, setTeacherUid2] = useState<string>(cell?.teacherUserId2 ? String(cell.teacherUserId2)  : "");
+  const [room, setRoom]                 = useState<string>(cell?.room ?? "");
+  const [notes, setNotes]               = useState<string>(cell?.notes ?? "");
+  const [showSecond, setShowSecond]     = useState<boolean>(!!(cell?.subjectId2 || cell?.teacherUserId2));
+  const [err, setErr]                   = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    try {
+      const res = await save.mutateAsync({
+        classSlug,
+        sectionCode,
+        periodId: period.id,
+        subjectId:      subjectId      ? Number(subjectId)      : null,
+        teacherUserId:  teacherUserId  ? Number(teacherUserId)  : null,
+        subjectId2:     showSecond && subjectId2     ? Number(subjectId2)     : null,
+        teacherUserId2: showSecond && teacherUserId2 ? Number(teacherUserId2) : null,
+        room:  room.trim()  || null,
+        notes: notes.trim() || null,
+      });
+      onSaved("saved", res.daysWritten);
+      onClose();
+    } catch (e) {
+      setErr(getErrorMessage(e, "Failed to save cell"));
+    }
+  }
+
+  async function onClear() {
+    if (!cell) return;
+    if (!confirm(`Clear ${classSlug}-${sectionCode} · ${period.name} from all days Mon–Sat?`)) return;
+    try {
+      const res = await remove.mutateAsync({
+        classSlug, sectionCode, periodId: period.id,
+      });
+      onSaved("deleted", res.daysDeleted);
+      onClose();
+    } catch (e) {
+      setErr(getErrorMessage(e, "Failed to clear"));
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title={`${classSlug}-${sectionCode} · ${period.name} · Mon–Sat`}
+      onClose={onClose}
+      actions={
+        <>
+          {cell && (
+            <button type="button" className="btn btn--danger" onClick={onClear} style={{ marginRight: "auto" }}>
+              Clear all days
+            </button>
+          )}
+          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" form="master-cell-form" className="btn btn--primary" disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save for every day"}
+          </button>
+        </>
+      }
+    >
+      <form id="master-cell-form" onSubmit={onSubmit} className="form-grid form-grid--2">
+        {cell?.mixed && (
+          <div className="banner banner--warn" style={{ gridColumn: "1 / -1" }}>
+            <Icon name="alert" size={14} />
+            <span>
+              Some days already differ for this slot. Saving here will <b>overwrite every day</b> Mon–Sat
+              with the values below.
+            </span>
+          </div>
+        )}
+
+        <div className="field">
+          <label className="field__label" htmlFor="mc-subject">Subject</label>
+          <select
+            id="mc-subject"
+            className="select"
+            value={subjectId}
+            onChange={(e) => setSubjectId(e.target.value)}
+          >
+            <option value="">— No subject —</option>
+            {eligibleSubjects.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.shortCode})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label className="field__label" htmlFor="mc-teacher">Teacher</label>
+          <select
+            id="mc-teacher"
+            className="select"
+            value={teacherUserId}
+            onChange={(e) => setTeacherUid(e.target.value)}
+          >
+            <option value="">— Unassigned —</option>
+            {teachers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+                {u.department ? ` · ${u.department}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="field">
+          <label className="field__label" htmlFor="mc-room">Room</label>
+          <input
+            id="mc-room"
+            className="input mono"
+            placeholder="e.g. R-204"
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+            maxLength={40}
+          />
+        </div>
+        <div className="field">
+          <label className="field__label" htmlFor="mc-notes">Notes</label>
+          <input
+            id="mc-notes"
+            className="input"
+            placeholder="optional"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={120}
+          />
+        </div>
+
+        <div className="field span-2">
+          <label className="check" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={showSecond}
+              onChange={(e) => setShowSecond(e.target.checked)}
+            />
+            <span>Add a <b>parallel slot</b> (e.g. split class: language A vs language B)</span>
+          </label>
+        </div>
+
+        {showSecond && (
+          <>
+            <div className="field">
+              <label className="field__label" htmlFor="mc-subject2">Subject (2nd)</label>
+              <select
+                id="mc-subject2"
+                className="select"
+                value={subjectId2}
+                onChange={(e) => setSubjectId2(e.target.value)}
+              >
+                <option value="">— No subject —</option>
+                {eligibleSubjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.shortCode})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label className="field__label" htmlFor="mc-teacher2">Teacher (2nd)</label>
+              <select
+                id="mc-teacher2"
+                className="select"
+                value={teacherUserId2}
+                onChange={(e) => setTeacherUid2(e.target.value)}
+              >
+                <option value="">— Unassigned —</option>
+                {teachers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                    {u.department ? ` · ${u.department}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {err && (
+          <div className="banner banner--error" style={{ gridColumn: "1 / -1" }}>
+            <Icon name="alert" size={14} /><span>{err}</span>
+          </div>
+        )}
+
+        <div className="muted body-s" style={{ gridColumn: "1 / -1" }}>
+          {period.startTime.slice(0, 5)}–{period.endTime.slice(0, 5)} · Period {period.periodNo} · applies to
+          <b style={{ color: "var(--ink)" }}> all 6 working days</b>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Styles                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -675,4 +1116,23 @@ const TT_CSS = `
   }
 
   .seg-btn-group { display: inline-flex; gap: 4px; }
+
+  /* Master view (periods × sections) — many more columns than the
+     section view, so cells are narrower and the table scrolls wider. */
+  .tt-grid--master { min-width: 1100px; }
+  .tt-grid--master thead th { min-width: 110px; }
+  .tt-grid--master tbody th.tt-grid__period { width: 140px; }
+  .tt-grid__cell--mixed {
+    background: linear-gradient(0deg, rgba(245, 158, 11, .08), rgba(245, 158, 11, .08)),
+                var(--white);
+  }
+  .tt-cell__mixed-flag {
+    display: inline-flex; align-items: center; gap: 2px;
+    font-size: 9px;
+    color: var(--warn, #b45309);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
 `;

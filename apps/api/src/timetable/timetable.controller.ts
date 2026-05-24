@@ -5,11 +5,15 @@ import { ZodPipe } from "../common/zod.pipe";
 import {
   TimetableCellUpsertSchema,
   TimetableGridQuerySchema,
+  TimetableMasterCellDeleteSchema,
+  TimetableMasterCellWriteSchema,
   TimetablePeriodUpsertSchema,
 } from "@crestly/shared";
 import type {
   TimetableCellUpsert,
   TimetableGridQuery,
+  TimetableMasterCellDelete,
+  TimetableMasterCellWrite,
   TimetablePeriodUpsert,
 } from "@crestly/shared";
 
@@ -33,6 +37,30 @@ export class TimetableController {
   @RequirePerm("timetable.view")
   workload() {
     return this.tt.workload();
+  }
+
+  /**
+   * Master grid — periods × every section, single day-agnostic cell.
+   * For schools whose timetable doesn't change Mon–Sat.
+   */
+  @Get("timetable/master")
+  @RequirePerm("timetable.view")
+  master() {
+    return this.tt.master();
+  }
+
+  @Post("timetable/master/cell")
+  @RequirePerm("timetable.manage")
+  @UsePipes(new ZodPipe(TimetableMasterCellWriteSchema))
+  upsertMasterCell(@Body() body: TimetableMasterCellWrite) {
+    return this.tt.upsertMasterCell(body);
+  }
+
+  @Post("timetable/master/cell/delete")
+  @RequirePerm("timetable.manage")
+  @UsePipes(new ZodPipe(TimetableMasterCellDeleteSchema))
+  deleteMasterCell(@Body() body: TimetableMasterCellDelete) {
+    return this.tt.deleteMasterCell(body);
   }
 
   @Post("timetable/cells")

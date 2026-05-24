@@ -4,6 +4,9 @@ import type {
   TimetableCellUpsert,
   TimetableGridQuery,
   TimetableGridResponse,
+  TimetableMasterCellDelete,
+  TimetableMasterCellWrite,
+  TimetableMasterResponse,
   TimetablePeriod,
   TimetablePeriodUpsert,
   WorkloadRow,
@@ -79,6 +82,41 @@ export function useDeleteCell() {
     mutationFn: async (id: number) =>
       (await api.delete<{ ok: true }>(`/timetable/cells/${id}`)).data,
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, "grid"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "workload"] });
+    },
+  });
+}
+
+/* ─── Master grid (one cell per section×period, Mon–Sat shared) ──── */
+
+export function useTimetableMaster() {
+  return useQuery({
+    queryKey: [...KEY, "master"],
+    queryFn: async () => (await api.get<TimetableMasterResponse>("/timetable/master")).data,
+  });
+}
+
+export function useSaveMasterCell() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: TimetableMasterCellWrite) =>
+      (await api.post<{ ok: true; daysWritten: number }>("/timetable/master/cell", input)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, "master"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "grid"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "workload"] });
+    },
+  });
+}
+
+export function useDeleteMasterCell() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: TimetableMasterCellDelete) =>
+      (await api.post<{ ok: true; daysDeleted: number }>("/timetable/master/cell/delete", input)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, "master"] });
       qc.invalidateQueries({ queryKey: [...KEY, "grid"] });
       qc.invalidateQueries({ queryKey: [...KEY, "workload"] });
     },

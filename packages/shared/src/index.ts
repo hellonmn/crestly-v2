@@ -209,6 +209,11 @@ export {
   TimetableGridQuerySchema,
   TimetableGridResponseSchema,
   TimetableCellUpsertSchema,
+  TimetableMasterSectionSchema,
+  TimetableMasterCellSchema,
+  TimetableMasterResponseSchema,
+  TimetableMasterCellWriteSchema,
+  TimetableMasterCellDeleteSchema,
   WorkloadRowSchema,
 } from "./timetable";
 export type {
@@ -218,6 +223,11 @@ export type {
   TimetableGridQuery,
   TimetableGridResponse,
   TimetableCellUpsert,
+  TimetableMasterSection,
+  TimetableMasterCell,
+  TimetableMasterResponse,
+  TimetableMasterCellWrite,
+  TimetableMasterCellDelete,
   WorkloadRow,
 } from "./timetable";
 
