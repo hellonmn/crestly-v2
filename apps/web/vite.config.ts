@@ -70,14 +70,47 @@ export default defineConfig({
     port: 5173,
     fs: { allow: [workspaceRoot] },
     proxy: {
-      "/api":     { target: "http://localhost:4000", changeOrigin: true },
+      "/api":     { target: "http://localhost:4000", changeOrigin: true, ...withCleanRetry() },
       // Selfies + voucher attachments + brand uploads are served by the API
       // under /uploads. In production they live on the same origin; in dev
       // we need this proxy so <img src="/uploads/..."> resolves correctly.
-      "/uploads": { target: "http://localhost:4000", changeOrigin: true },
+      "/uploads": { target: "http://localhost:4000", changeOrigin: true, ...withCleanRetry() },
     },
   },
   optimizeDeps: {
     exclude: ["@crestly/shared", "@crestly/icons", "@crestly/design"],
   },
 });
+
+/**
+ * Proxy-error noise reducer.
+ *
+ * During `npm run dev`, the API takes ~30-60s to compile + boot. The web
+ * vite is up immediately and starts proxying queries, each of which throws
+ * a 14-line AggregateError stack trace ([ECONNREFUSED]) into the console.
+ * With React Query retrying 3× per call across ~5 startup queries, that's
+ * a 200-line wall of red on every restart.
+ *
+ * This wrapper:
+ *   - rate-limits the "API not ready" log to once per 5 seconds
+ *   - sends the client a clean JSON 503 so axios fails fast (no stack)
+ */
+function withCleanRetry() {
+  let lastLogAt = 0;
+  return {
+    configure: (proxy: { on: (e: string, h: (...a: never[]) => void) => void }) => {
+      proxy.on("error", (err: NodeJS.ErrnoException, _req: unknown, res: { writableEnded?: boolean; writeHead: (s: number, h: Record<string, string>) => void; end: (b: string) => void }) => {
+        const now = Date.now();
+        if (now - lastLogAt > 5000) {
+          // eslint-disable-next-line no-console
+          console.log(`[vite proxy] api server not ready yet (${err.code ?? "error"}) — will retry`);
+          lastLogAt = now;
+        }
+        if (!res.writableEnded) {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "api_starting", message: "API server still booting. Refresh in a moment." }));
+        }
+      });
+    },
+  };
+}
