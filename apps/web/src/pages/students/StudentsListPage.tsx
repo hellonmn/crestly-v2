@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import { useStudents, useStudentBulk } from "./hooks";
@@ -113,7 +114,7 @@ export function StudentsListPage() {
   const canManage = (user?.permissions ?? []).includes("students.manage");
   const canBulk = isFullAccess && canManage;
 
-  const { data, isLoading, isFetching } = useStudents({
+  const { data, isLoading, isFetching, error, refetch } = useStudents({
     q: q || undefined,
     class: cls || undefined,
     section: section || undefined,
@@ -225,6 +226,8 @@ export function StudentsListPage() {
             : "Loading…"
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="students" />
 
       {bulkFlash && <div className="banner banner--success"><span>{bulkFlash}</span></div>}
       {bulkError && <div className="banner banner--error"><span>{bulkError}</span></div>}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import { useFeeLedger } from "./hooks";
@@ -104,7 +105,7 @@ export function FeeLedgerListPage() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const { data, isLoading, isFetching } = useFeeLedger({
+  const { data, isLoading, isFetching, error, refetch } = useFeeLedger({
     q: q || undefined,
     class: cls || undefined,
     section: section || undefined,
@@ -178,6 +179,8 @@ export function FeeLedgerListPage() {
         title="Fee Ledger"
         lede="Collections, dues, and per-student fee status. Record payments and track overdue balances."
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="fee ledger" />
 
       {/* ===== STATS ===== */}
       <div id="ledger-stats" className={isFetching && !isLoading ? "is-loading" : ""}>

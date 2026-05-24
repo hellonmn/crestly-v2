@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import {
@@ -36,7 +37,7 @@ export function WhatsappTemplatesPage() {
   const canBind = (user?.permissions ?? []).includes("whatsapp.bind") ||
                   (user?.permissions ?? []).includes("whatsapp.configure");
 
-  const { data: templates, isLoading: tplLoading } = useWaTemplates();
+  const { data: templates, isLoading: tplLoading, error: tplError, refetch: tplRefetch, isFetching: tplFetching } = useWaTemplates();
   const { data: bindings,  isLoading: bndLoading } = useWaBindings();
   const refresh = useRefreshTemplates();
 
@@ -83,6 +84,8 @@ export function WhatsappTemplatesPage() {
           <Icon name="alert" size={16} /><span>{err}</span>
         </div>
       )}
+
+      <QueryError error={tplError} refetch={tplRefetch} isFetching={tplFetching} label="templates" />
 
       {/* Refresh toolbar */}
       <div className="toolbar card" style={{ padding: "14px 18px", display: "flex", gap: 10, alignItems: "center" }}>

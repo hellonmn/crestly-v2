@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
@@ -63,7 +64,7 @@ export function TeamListPage() {
     return () => clearTimeout(t);
   }, [qInput]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data, isLoading } = useTeamList({
+  const { data, isLoading, error, refetch, isFetching } = useTeamList({
     q: q || undefined,
     department: department || undefined,
     status: status === "all" ? undefined : status,
@@ -107,6 +108,8 @@ export function TeamListPage() {
           </>
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="team members" />
 
       {/* Stat tiles */}
       <div className="grid grid--cols-4 grid--gap-sm">

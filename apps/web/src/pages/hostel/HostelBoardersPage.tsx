@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import { useHostelBoarders } from "./hooks";
@@ -53,7 +54,7 @@ export function HostelBoardersPage() {
     return () => clearTimeout(t);
   }, [qInput, q, update]);
 
-  const { data, isLoading } = useHostelBoarders({
+  const { data, isLoading, error, refetch, isFetching } = useHostelBoarders({
     q: q || undefined,
     block: (block || undefined) as HostelBlock | undefined,
     class: cls || undefined,
@@ -78,6 +79,8 @@ export function HostelBoardersPage() {
           ? "Loading…"
           : `${rows.length.toLocaleString("en-IN")} hostellers. Search by name, father, SR; filter by block / class.`}
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="boarders" />
 
       <form
         className="toolbar card"

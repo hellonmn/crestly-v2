@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Modal } from "@/components/Modal";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
@@ -17,7 +18,7 @@ import type { ExamSubject } from "@crestly/shared";
 /* ------------------------------------------------------------------ */
 
 export function ExamSubjectsPage() {
-  const { data: subjects, isLoading } = useExamSubjects();
+  const { data: subjects, isLoading, error, refetch, isFetching } = useExamSubjects();
   const { data: classes }             = useClasses();
   const [editing, setEditing]         = useState<ExamSubject | "new" | null>(null);
   const toggle                        = useToggleSubjectClass();
@@ -64,6 +65,8 @@ export function ExamSubjectsPage() {
           <Icon name="alert" size={16} /><span>{err}</span>
         </div>
       )}
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="exam subjects" />
 
       <div className="table-card" style={{ overflowX: "auto" }}>
         <div className="table-card__head">

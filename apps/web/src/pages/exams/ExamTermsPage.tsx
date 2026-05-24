@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Modal } from "@/components/Modal";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
@@ -14,7 +15,7 @@ import type { ExamTerm } from "@crestly/shared";
 /* ------------------------------------------------------------------ */
 
 export function ExamTermsPage() {
-  const { data: terms, isLoading } = useExamTerms();
+  const { data: terms, isLoading, error, refetch, isFetching } = useExamTerms();
   const [editing, setEditing] = useState<ExamTerm | "new" | null>(null);
   const toggle = useToggleFinalize();
   const remove = useDeleteTerm();
@@ -84,6 +85,8 @@ export function ExamTermsPage() {
           <Icon name="alert" size={16} /><span>{err}</span>
         </div>
       )}
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="exam terms" />
 
       {/* Total weight banner */}
       <div className={`banner ${weightOk ? "banner--success" : "banner--warn"}`}>

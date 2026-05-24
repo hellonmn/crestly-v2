@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
@@ -69,7 +70,7 @@ export function ShiftsPage() {
     return () => clearTimeout(t);
   }, [qInput]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data, isLoading } = useShifts({
+  const { data, isLoading, error, refetch, isFetching } = useShifts({
     q:          q || undefined,
     roleSlug:   roleSlug || undefined,
     department: department || undefined,
@@ -126,6 +127,8 @@ export function ShiftsPage() {
           <Icon name="check" size={16} /><span>{flash}</span>
         </div>
       )}
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="shifts" />
 
       {/* Stat tiles — match PHP order: Scheduled / Without / Bulk-update */}
       <div className="grid grid--cols-3 grid--gap-sm">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Modal } from "@/components/Modal";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
@@ -55,7 +56,7 @@ export function ExamDatesheetPage() {
     }
   }, [terms, termId]);
 
-  const { data: rows, isLoading: rowsLoading } = useDatesheet(
+  const { data: rows, isLoading: rowsLoading, error: rowsError, refetch: rowsRefetch, isFetching: rowsFetching } = useDatesheet(
     typeof termId === "number" ? termId : undefined,
     classSlug || undefined,
   );
@@ -125,6 +126,8 @@ export function ExamDatesheetPage() {
           <Icon name="alert" size={16} /><span>{err}</span>
         </div>
       )}
+
+      <QueryError error={rowsError} refetch={rowsRefetch} isFetching={rowsFetching} label="date sheet" />
 
       <div className="toolbar card" style={{ padding: "12px 16px" }}>
         <div className="field" style={{ minWidth: 220 }}>

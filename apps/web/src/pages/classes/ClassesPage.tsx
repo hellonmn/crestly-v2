@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { Modal } from "@/components/Modal";
@@ -27,7 +28,7 @@ import type { SchoolClass, Section, TeamMember } from "@crestly/shared";
 export function ClassesPage() {
   const { user } = useAuth();
   const canManage = (user?.permissions ?? []).includes("classes.manage");
-  const { data: classes, isLoading } = useClasses();
+  const { data: classes, isLoading, error, refetch, isFetching } = useClasses();
 
   const [editingClass, setEditingClass]     = useState<SchoolClass | "new" | null>(null);
   const [editingSection, setEditingSection] = useState<
@@ -70,6 +71,8 @@ export function ClassesPage() {
           )
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="classes" />
 
       <div className="grid grid--cols-4 grid--gap-sm">
         <StatTile

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import { useReceipts } from "./hooks";
@@ -85,7 +86,7 @@ export function ReceiptsListPage() {
     return () => clearTimeout(t);
   }, [qInput, q, update]);
 
-  const { data, isLoading, isFetching } = useReceipts({
+  const { data, isLoading, isFetching, error, refetch } = useReceipts({
     q: q || undefined,
     sessionCode: sessionUrl || undefined,
     method: (method || undefined) as FeePaymentMethod | undefined,
@@ -124,6 +125,8 @@ export function ReceiptsListPage() {
         title="Receipts"
         lede="Every payment recorded, newest first. Search by receipt #, student name, or SR. Voided rows are kept for audit — toggle below to see them."
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="receipts" />
 
       {/* Summary tiles */}
       {isLoading ? (

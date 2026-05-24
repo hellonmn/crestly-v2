@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
@@ -43,7 +44,7 @@ export function TransportListPage() {
     return () => clearTimeout(t);
   }, [qInput]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data, isLoading } = usePickupPoints(q || undefined);
+  const { data, isLoading, error, refetch, isFetching } = usePickupPoints(q || undefined);
 
   return (
     <>
@@ -65,6 +66,8 @@ export function TransportListPage() {
           </>
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="pickup points" />
 
       {/* Stat tiles — match PHP order: Pickups / Students / Revenue / Slabs */}
       <div className="grid grid--cols-4 grid--gap-sm">

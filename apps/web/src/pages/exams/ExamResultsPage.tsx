@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { useClasses } from "@/pages/classes/hooks";
 import { useExamTerms, useResults } from "./hooks";
@@ -75,7 +76,7 @@ export function ExamResultsPage() {
     ? { termId: termId ?? undefined, class: classSlug, section }
     : null;
 
-  const { data, isLoading: resultsLoading } = useResults(query);
+  const { data, isLoading: resultsLoading, error: resultsError, refetch: resultsRefetch, isFetching: resultsFetching } = useResults(query);
 
   const currentTerm = terms?.find((t) => t.id === termId);
 
@@ -99,6 +100,8 @@ export function ExamResultsPage() {
           </Link>
         }
       />
+
+      <QueryError error={resultsError} refetch={resultsRefetch} isFetching={resultsFetching} label="results" />
 
       {/* Pickers */}
       <form

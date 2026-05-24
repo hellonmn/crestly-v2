@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { useFamilies } from "./hooks";
@@ -11,7 +12,7 @@ export function FamiliesListPage() {
   const { user } = useAuth();
   const canManage = (user?.permissions ?? []).includes("students.manage");
   const [q, setQ] = useState("");
-  const { data, isLoading } = useFamilies({ q: q || undefined, page: 1, pageSize: 100 });
+  const { data, isLoading, error, refetch, isFetching } = useFamilies({ q: q || undefined, page: 1, pageSize: 100 });
 
   return (
     <>
@@ -27,6 +28,8 @@ export function FamiliesListPage() {
           )
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="families" />
 
       <div className="grid grid--cols-4 grid--gap-sm">
         <StatTile tint="mustard" icon="families" label="FAMILIES" value={String(data?.totalFamilies ?? "—")} delta="" />

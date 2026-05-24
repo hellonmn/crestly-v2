@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import { useVouchers } from "./hooks";
@@ -80,7 +81,7 @@ export function VouchersListPage() {
     return () => clearTimeout(t);
   }, [qInput, q, update]);
 
-  const { data, isLoading, isFetching } = useVouchers({
+  const { data, isLoading, isFetching, error, refetch } = useVouchers({
     q: q || undefined,
     status: (status || undefined) as VoucherStatus | undefined,
     payment: (pay || undefined) as VoucherPaymentStatus | undefined,
@@ -110,6 +111,8 @@ export function VouchersListPage() {
           </Link>
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="vouchers" />
 
       {/* ===== Stat tiles ===== */}
       {isLoading ? (

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { BrandDot } from "@/components/BrandDot";
 import { Skeleton } from "@/components/Skeleton";
@@ -87,7 +88,7 @@ export function AdmissionsListPage() {
 
   const { data: classes } = useClasses();
 
-  const { data, isLoading } = useEnquiries({
+  const { data, isLoading, error, refetch, isFetching } = useEnquiries({
     q: q || undefined,
     status: status || undefined,
     source: source || undefined,
@@ -132,6 +133,8 @@ export function AdmissionsListPage() {
           ) : undefined
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="enquiries" />
 
       {/* Stat tiles — match PHP order: Total / Open / Admitted / Lost */}
       <div className="grid grid--cols-4 grid--gap-sm">

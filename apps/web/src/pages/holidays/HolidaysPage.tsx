@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { Modal } from "@/components/Modal";
@@ -64,7 +65,7 @@ export function HolidaysPage() {
 
   const fallbackAY = useMemo(() => defaultAY(), []);
   const [academicYear, setAcademicYear] = useState<number>(fallbackAY);
-  const { data, isLoading } = useHolidayCalendar(academicYear);
+  const { data, isLoading, error, refetch, isFetching } = useHolidayCalendar(academicYear);
   const [editing, setEditing] = useState<Holiday | "new" | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -135,6 +136,8 @@ export function HolidaysPage() {
           <Icon name="check" size={16} /><span>{flash}</span>
         </div>
       )}
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="holidays" />
 
       {/* Stat tiles — match PHP order: Total / Upcoming 60d / Sundays / Working days */}
       <div className="grid grid--cols-4 grid--gap-sm">

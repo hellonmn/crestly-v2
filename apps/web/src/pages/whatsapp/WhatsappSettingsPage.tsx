@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { useSaveWaSettings, useWaSettings, useWaStats, useWaTest } from "./hooks";
@@ -17,7 +18,7 @@ export function WhatsappSettingsPage() {
   const { user } = useAuth();
   const canConfigure = (user?.permissions ?? []).includes("whatsapp.configure");
 
-  const { data: settings, isLoading } = useWaSettings();
+  const { data: settings, isLoading, error: settingsError, refetch: settingsRefetch, isFetching: settingsFetching } = useWaSettings();
   const { data: stats }               = useWaStats();
   const save = useSaveWaSettings();
   const test = useWaTest();
@@ -156,6 +157,8 @@ export function WhatsappSettingsPage() {
           </span>
         </div>
       )}
+
+      <QueryError error={settingsError} refetch={settingsRefetch} isFetching={settingsFetching} label="WhatsApp settings" />
 
       {/* 4 stat tiles — match PHP order: Status / Templates / Sent 24h / Failed 24h */}
       <div className="grid grid--cols-4 grid--gap-sm">

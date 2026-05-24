@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { StatTile } from "@/components/StatTile";
 import { Skeleton } from "@/components/Skeleton";
 import { useWaLog } from "./hooks";
@@ -31,7 +32,7 @@ export function WhatsappLogPage() {
   const status = params.get("status") ?? "";
   const action = params.get("action") ?? "";
 
-  const { data: rows, isLoading } = useWaLog();
+  const { data: rows, isLoading, error, refetch, isFetching } = useWaLog();
 
   // Filter client-side; the API returns the last 200 unfiltered (matches
   // PHP — filters only apply to the current load, no pagination yet).
@@ -83,6 +84,8 @@ export function WhatsappLogPage() {
           </>
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="WhatsApp log" />
 
       {/* Stat tiles — 7-day rolling totals match PHP */}
       <div className="grid grid--cols-3 grid--gap-sm">

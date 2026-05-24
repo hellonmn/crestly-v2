@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { useEditRequests } from "./hooks";
 import { useAuth } from "@/lib/auth-store";
 import type { EditRequestStatus } from "@crestly/shared";
@@ -17,7 +18,7 @@ export function ApprovalsListPage() {
   const isAdmin = user?.roleSlug === "admin";
   const [status, setStatus] = useState<EditRequestStatus | "">("pending");
   const [mine, setMine] = useState(!isAdmin);
-  const { data, isLoading } = useEditRequests({
+  const { data, isLoading, error, refetch, isFetching } = useEditRequests({
     status: status || undefined,
     mine,
   });
@@ -35,6 +36,8 @@ export function ApprovalsListPage() {
             : "Teacher-side edit requests you have submitted."
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="approvals" />
 
       <div className="toolbar card">
         <div style={{ display: "flex", gap: 4 }}>

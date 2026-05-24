@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { useClasses } from "@/pages/classes/hooks";
 import { useExamSubjects, useExamTerms, useMarks, useSaveMark } from "./hooks";
@@ -75,7 +76,7 @@ export function ExamMarksPage() {
   const query = picked
     ? { termId: termId!, subjectId: subjectId!, class: classSlug, section }
     : null;
-  const { data, isLoading: marksLoading } = useMarks(query);
+  const { data, isLoading: marksLoading, error: marksError, refetch: marksRefetch, isFetching: marksFetching } = useMarks(query);
   const save = useSaveMark();
 
   const isFinalized = data?.isFinalized ?? false;
@@ -226,6 +227,8 @@ export function ExamMarksPage() {
           </Link>
         }
       />
+
+      <QueryError error={marksError} refetch={marksRefetch} isFetching={marksFetching} label="marks" />
 
       {/* ===== Picker ===== */}
       <form

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
+import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
 import { useHostelRooms } from "./hooks";
 import type { HostelBlock, HostelRoom, HostelRoomType } from "@crestly/shared";
@@ -15,7 +16,7 @@ export function HostelRoomsPage() {
   const block    = (params.get("block") ?? "Boys") as HostelBlock;
   const roomType = (params.get("type")  ?? "")     as HostelRoomType | "";
 
-  const { data, isLoading } = useHostelRooms({
+  const { data, isLoading, error, refetch, isFetching } = useHostelRooms({
     block,
     roomType: roomType || undefined,
   });
@@ -77,6 +78,8 @@ export function HostelRoomsPage() {
           ? "Loading…"
           : `${totalRooms.toLocaleString("en-IN")} rooms · tap any room to see occupant details.`}
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="rooms" />
 
       {/* Block toggle */}
       <div className="block-tabs">
