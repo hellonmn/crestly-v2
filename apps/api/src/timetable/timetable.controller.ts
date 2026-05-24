@@ -5,6 +5,9 @@ import { ZodPipe } from "../common/zod.pipe";
 import {
   TimetableCellUpsertSchema,
   TimetableGridQuerySchema,
+  TimetableMasterAutoFillSchema,
+  TimetableMasterBulkDeleteSchema,
+  TimetableMasterBulkWriteSchema,
   TimetableMasterCellDeleteSchema,
   TimetableMasterCellWriteSchema,
   TimetablePeriodUpsertSchema,
@@ -12,6 +15,9 @@ import {
 import type {
   TimetableCellUpsert,
   TimetableGridQuery,
+  TimetableMasterAutoFill,
+  TimetableMasterBulkDelete,
+  TimetableMasterBulkWrite,
   TimetableMasterCellDelete,
   TimetableMasterCellWrite,
   TimetablePeriodUpsert,
@@ -61,6 +67,37 @@ export class TimetableController {
   @UsePipes(new ZodPipe(TimetableMasterCellDeleteSchema))
   deleteMasterCell(@Body() body: TimetableMasterCellDelete) {
     return this.tt.deleteMasterCell(body);
+  }
+
+  /**
+   * Bulk write — push the same cell to many (section × period) targets
+   * at once. Powers the class-collapsed master view (apply to all sections
+   * of Class 6 in one click).
+   */
+  @Post("timetable/master/bulk")
+  @RequirePerm("timetable.manage")
+  @UsePipes(new ZodPipe(TimetableMasterBulkWriteSchema))
+  upsertMasterCellBulk(@Body() body: TimetableMasterBulkWrite) {
+    return this.tt.upsertMasterCellBulk(body);
+  }
+
+  @Post("timetable/master/bulk/delete")
+  @RequirePerm("timetable.manage")
+  @UsePipes(new ZodPipe(TimetableMasterBulkDeleteSchema))
+  deleteMasterCellBulk(@Body() body: TimetableMasterBulkDelete) {
+    return this.tt.deleteMasterCellBulk(body);
+  }
+
+  /**
+   * Auto-fill — distribute a class's subjects across teaching periods
+   * for the chosen sections (defaults to all sections of the class).
+   * Teachers stay blank — humans assign those.
+   */
+  @Post("timetable/master/auto-fill")
+  @RequirePerm("timetable.manage")
+  @UsePipes(new ZodPipe(TimetableMasterAutoFillSchema))
+  autoFill(@Body() body: TimetableMasterAutoFill) {
+    return this.tt.autoFill(body);
   }
 
   @Post("timetable/cells")

@@ -138,6 +138,56 @@ export const TimetableMasterCellDeleteSchema = z.object({
 });
 export type TimetableMasterCellDelete = z.infer<typeof TimetableMasterCellDeleteSchema>;
 
+/** Bulk write — same cell applied to many (section × period) targets at once,
+ *  each fanned out to days 1..6. Used when assigning from the class-collapsed
+ *  master view (pick which sections of the class get this assignment). */
+const SectionTargetSchema = z.object({
+  classSlug: z.string().min(1),
+  sectionCode: z.string().min(1),
+});
+
+export const TimetableMasterBulkWriteSchema = z.object({
+  targets: z.array(SectionTargetSchema).min(1).max(200),
+  periodId: z.number().int().positive(),
+  subjectId: z.number().int().nullable(),
+  teacherUserId: z.number().int().nullable(),
+  subjectId2: z.number().int().nullable().optional(),
+  teacherUserId2: z.number().int().nullable().optional(),
+  room: z.string().max(40).nullable().optional(),
+  notes: z.string().max(120).nullable().optional(),
+});
+export type TimetableMasterBulkWrite = z.infer<typeof TimetableMasterBulkWriteSchema>;
+
+export const TimetableMasterBulkDeleteSchema = z.object({
+  targets: z.array(SectionTargetSchema).min(1).max(200),
+  periodId: z.number().int().positive(),
+});
+export type TimetableMasterBulkDelete = z.infer<typeof TimetableMasterBulkDeleteSchema>;
+
+/** Auto-fill — distribute a class's subjects across teaching periods for the
+ *  given sections. Teachers are NOT auto-assigned (intentionally — that
+ *  decision belongs to a human). Subjects rotate by period order. */
+export const TimetableMasterAutoFillSchema = z.object({
+  classSlug: z.string().min(1),
+  /** If empty, fills every section of the class. */
+  sectionCodes: z.array(z.string().min(1)).optional(),
+  /** Subject IDs to use (sorted into rotation order on the server).
+   *  If empty, uses every exam-subject mapped to this class. */
+  subjectIds: z.array(z.number().int().positive()).optional(),
+  /** false = skip cells that already have a subject set;
+   *  true  = overwrite. */
+  overwrite: z.boolean().default(false),
+});
+export type TimetableMasterAutoFill = z.infer<typeof TimetableMasterAutoFillSchema>;
+
+export const TimetableMasterAutoFillResponseSchema = z.object({
+  sectionsAffected: z.number().int(),
+  periodsFilled: z.number().int(),
+  cellsWritten: z.number().int(),
+  cellsSkipped: z.number().int(),
+});
+export type TimetableMasterAutoFillResponse = z.infer<typeof TimetableMasterAutoFillResponseSchema>;
+
 export const WorkloadRowSchema = z.object({
   userId: z.number().int(),
   name: z.string(),

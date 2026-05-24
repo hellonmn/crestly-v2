@@ -214,6 +214,10 @@ export {
   TimetableMasterResponseSchema,
   TimetableMasterCellWriteSchema,
   TimetableMasterCellDeleteSchema,
+  TimetableMasterBulkWriteSchema,
+  TimetableMasterBulkDeleteSchema,
+  TimetableMasterAutoFillSchema,
+  TimetableMasterAutoFillResponseSchema,
   WorkloadRowSchema,
 } from "./timetable";
 export type {
@@ -228,6 +232,10 @@ export type {
   TimetableMasterResponse,
   TimetableMasterCellWrite,
   TimetableMasterCellDelete,
+  TimetableMasterBulkWrite,
+  TimetableMasterBulkDelete,
+  TimetableMasterAutoFill,
+  TimetableMasterAutoFillResponse,
   WorkloadRow,
 } from "./timetable";
 

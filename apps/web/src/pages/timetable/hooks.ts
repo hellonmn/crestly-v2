@@ -4,6 +4,10 @@ import type {
   TimetableCellUpsert,
   TimetableGridQuery,
   TimetableGridResponse,
+  TimetableMasterAutoFill,
+  TimetableMasterAutoFillResponse,
+  TimetableMasterBulkDelete,
+  TimetableMasterBulkWrite,
   TimetableMasterCellDelete,
   TimetableMasterCellWrite,
   TimetableMasterResponse,
@@ -115,6 +119,51 @@ export function useDeleteMasterCell() {
   return useMutation({
     mutationFn: async (input: TimetableMasterCellDelete) =>
       (await api.post<{ ok: true; daysDeleted: number }>("/timetable/master/cell/delete", input)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, "master"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "grid"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "workload"] });
+    },
+  });
+}
+
+/** Bulk write — same cell to N sections at once (class-collapsed view). */
+export function useSaveMasterCellBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: TimetableMasterBulkWrite) =>
+      (await api.post<{ ok: true; daysWritten: number; sectionsWritten: number }>(
+        "/timetable/master/bulk", input,
+      )).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, "master"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "grid"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "workload"] });
+    },
+  });
+}
+
+export function useDeleteMasterCellBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: TimetableMasterBulkDelete) =>
+      (await api.post<{ ok: true; sectionsDeleted: number; rowsDeleted: number }>(
+        "/timetable/master/bulk/delete", input,
+      )).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, "master"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "grid"] });
+      qc.invalidateQueries({ queryKey: [...KEY, "workload"] });
+    },
+  });
+}
+
+/** Auto-fill — distribute class subjects across periods for the given sections. */
+export function useAutoFillClass() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: TimetableMasterAutoFill) =>
+      (await api.post<TimetableMasterAutoFillResponse>("/timetable/master/auto-fill", input)).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...KEY, "master"] });
       qc.invalidateQueries({ queryKey: [...KEY, "grid"] });

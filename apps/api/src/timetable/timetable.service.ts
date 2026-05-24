@@ -7,6 +7,10 @@ import type {
   TimetableCellUpsert,
   TimetableGridQuery,
   TimetableGridResponse,
+  TimetableMasterAutoFill,
+  TimetableMasterAutoFillResponse,
+  TimetableMasterBulkDelete,
+  TimetableMasterBulkWrite,
   TimetableMasterCell,
   TimetableMasterCellDelete,
   TimetableMasterCellWrite,
@@ -342,6 +346,199 @@ export class TimetableService {
       }
     }
     return { ok: true, daysWritten: days.length };
+  }
+
+  /**
+   * Bulk write — apply the same cell to many sections at once,
+   * each fanned out to days 1..6. Used by the class-collapsed master view
+   * when the user wants to push the same assignment to e.g. all 5 sections
+   * of Class 6.
+   */
+  async upsertMasterCellBulk(input: TimetableMasterBulkWrite): Promise<{ ok: true; daysWritten: number; sectionsWritten: number }> {
+    const session = await this.sessions.current();
+    const period = await this.prisma.db.timetable_periods.findUnique({
+      where: { id: input.periodId },
+    });
+    if (!period) throw new NotFoundException("Period not found");
+    if (period.is_break) {
+      throw new BadRequestException("Cannot assign a cell to a break period");
+    }
+    const days = [1, 2, 3, 4, 5, 6] as const;
+    let total = 0;
+    for (const t of input.targets) {
+      for (const day of days) {
+        const existing = await this.prisma.db.timetable_entries.findFirst({
+          where: {
+            session_code: session.code,
+            class_slug: t.classSlug,
+            section_code: t.sectionCode,
+            day_of_week: day,
+            period_id: input.periodId,
+          },
+        });
+        if (existing) {
+          await this.prisma.db.timetable_entries.update({
+            where: { id: existing.id },
+            data: {
+              subject_id: input.subjectId,
+              teacher_user_id: input.teacherUserId,
+              subject_id2: input.subjectId2 ?? null,
+              teacher_user_id2: input.teacherUserId2 ?? null,
+              room: input.room ?? null,
+              notes: input.notes ?? null,
+            },
+          });
+        } else {
+          await this.prisma.db.timetable_entries.create({
+            data: {
+              session_code: session.code,
+              class_slug: t.classSlug,
+              section_code: t.sectionCode,
+              day_of_week: day,
+              period_id: input.periodId,
+              subject_id: input.subjectId,
+              teacher_user_id: input.teacherUserId,
+              subject_id2: input.subjectId2 ?? null,
+              teacher_user_id2: input.teacherUserId2 ?? null,
+              room: input.room ?? null,
+              notes: input.notes ?? null,
+            },
+          });
+        }
+        total++;
+      }
+    }
+    return { ok: true, daysWritten: days.length, sectionsWritten: input.targets.length };
+  }
+
+  /** Bulk clear — delete all 6 days for many (section, period) pairs. */
+  async deleteMasterCellBulk(input: TimetableMasterBulkDelete): Promise<{ ok: true; sectionsDeleted: number; rowsDeleted: number }> {
+    const session = await this.sessions.current();
+    let rows = 0;
+    for (const t of input.targets) {
+      const res = await this.prisma.db.timetable_entries.deleteMany({
+        where: {
+          session_code: session.code,
+          class_slug: t.classSlug,
+          section_code: t.sectionCode,
+          period_id: input.periodId,
+        },
+      });
+      rows += res.count;
+    }
+    return { ok: true, sectionsDeleted: input.targets.length, rowsDeleted: rows };
+  }
+
+  /**
+   * Auto-fill — rotate a class's exam-subjects across every teaching period
+   * (period_no order) for the given sections. Teachers are NOT auto-assigned
+   * — that decision belongs to a human; this just lays down the subject grid
+   * so the editor isn't a sea of empty cells.
+   *
+   * - If `subjectIds` is empty, uses every exam-subject mapped to the class
+   *   via `exam_class_subjects` (the same source the marks-entry UI uses).
+   * - If `sectionCodes` is empty, fills every section of the class.
+   * - `overwrite: false` (default) skips cells that already have a subject
+   *   set; `true` overwrites them.
+   *
+   * Writes go to all 6 working days for each (section, teaching period).
+   */
+  async autoFill(input: TimetableMasterAutoFill): Promise<TimetableMasterAutoFillResponse> {
+    const session = await this.sessions.current();
+
+    // Resolve sections.
+    const cls = await this.prisma.db.classes.findUnique({
+      where: { slug: input.classSlug },
+      include: { sections: { orderBy: { code: "asc" } } },
+    });
+    if (!cls) throw new NotFoundException(`Class "${input.classSlug}" not found`);
+    const allSectionCodes = cls.sections.map((s) => s.code);
+    const wanted = input.sectionCodes && input.sectionCodes.length > 0
+      ? allSectionCodes.filter((c) => input.sectionCodes!.includes(c))
+      : allSectionCodes;
+    if (wanted.length === 0) {
+      throw new BadRequestException("No matching sections to auto-fill");
+    }
+
+    // Resolve subjects in rotation order.
+    let subjectIds: number[];
+    if (input.subjectIds && input.subjectIds.length > 0) {
+      subjectIds = input.subjectIds;
+    } else {
+      const mapped = await this.prisma.db.exam_class_subjects.findMany({
+        where: { class_slug: input.classSlug },
+        orderBy: [{ sort_order: "asc" }, { id: "asc" }],
+        select: { subject_id: true },
+      });
+      subjectIds = mapped.map((m) => m.subject_id);
+    }
+    if (subjectIds.length === 0) {
+      throw new BadRequestException(
+        "No subjects to distribute — map subjects to this class under Exams → Subjects first, or pick subjects explicitly.",
+      );
+    }
+
+    // Teaching periods in display order.
+    const periods = await this.prisma.db.timetable_periods.findMany({
+      where: { session_code: session.code, is_break: false },
+      orderBy: [{ sort_order: "asc" }, { period_no: "asc" }],
+    });
+    if (periods.length === 0) {
+      throw new BadRequestException("No teaching periods defined yet — add periods first.");
+    }
+
+    const days = [1, 2, 3, 4, 5, 6] as const;
+    let written = 0;
+    let skipped = 0;
+
+    for (const sectionCode of wanted) {
+      for (let pi = 0; pi < periods.length; pi++) {
+        const period = periods[pi];
+        const subjectId = subjectIds[pi % subjectIds.length];
+
+        for (const day of days) {
+          const existing = await this.prisma.db.timetable_entries.findFirst({
+            where: {
+              session_code: session.code,
+              class_slug: input.classSlug,
+              section_code: sectionCode,
+              day_of_week: day,
+              period_id: period.id,
+            },
+          });
+          if (existing && existing.subject_id != null && !input.overwrite) {
+            skipped++;
+            continue;
+          }
+          if (existing) {
+            await this.prisma.db.timetable_entries.update({
+              where: { id: existing.id },
+              data: { subject_id: subjectId },
+            });
+          } else {
+            await this.prisma.db.timetable_entries.create({
+              data: {
+                session_code: session.code,
+                class_slug: input.classSlug,
+                section_code: sectionCode,
+                day_of_week: day,
+                period_id: period.id,
+                subject_id: subjectId,
+                teacher_user_id: null,
+              },
+            });
+          }
+          written++;
+        }
+      }
+    }
+
+    return {
+      sectionsAffected: wanted.length,
+      periodsFilled: periods.length,
+      cellsWritten: written,
+      cellsSkipped: skipped,
+    };
   }
 
   /** Clear a master cell — deletes all 6 days for (section, period). */
