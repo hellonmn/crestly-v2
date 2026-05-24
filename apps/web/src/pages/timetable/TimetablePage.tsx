@@ -5,6 +5,7 @@ import { PageHead } from "@/components/PageHead";
 import { Modal } from "@/components/Modal";
 import { QueryError } from "@/components/QueryError";
 import { Skeleton } from "@/components/Skeleton";
+import { Anim } from "@/components/Anim";
 import {
   useClearCell, useEligibleTeachers, useSaveCell, useSmartAllot, useTimetable,
 } from "./hooks";
@@ -900,12 +901,14 @@ function SmartAllotModal({
         </div>
       </div>
 
-      {scope === "all" && allot.isPending && (
-        <div className="banner banner--info" style={{ marginBottom: 12 }}>
-          <Icon name="info" size={14} />
-          <span>
-            Generating across every section — this can take a minute. Don't close this tab; the result will appear here when done.
-          </span>
+      {allot.isPending && (
+        <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
+          <Anim name="processing" size={120} />
+          <div className="muted body-s" style={{ marginTop: 4 }}>
+            {scope === "all"
+              ? "Generating across every section — this can take a minute. Don't close this tab."
+              : "Generating timetable…"}
+          </div>
         </div>
       )}
 

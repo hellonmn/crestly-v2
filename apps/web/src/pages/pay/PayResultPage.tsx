@@ -1,5 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import { CrestlyLogo } from "@crestly/icons";
+import { Anim } from "@/components/Anim";
 
 /* ============================================================
    Parent-facing payment result pages.
@@ -13,12 +14,8 @@ export function PaySuccessPage() {
   return (
     <Shell title="Payment received">
       <div style={{ textAlign: "center" }}>
-        <div style={tickStyle}>
-          <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12l5 5L20 7"/>
-          </svg>
-        </div>
-        <h1 style={{ fontSize: 26, margin: "16px 0 8px", fontFamily: "var(--font-display)" }}>
+        <Anim name="payment-success" size={160} />
+        <h1 style={{ fontSize: 26, margin: "8px 0 8px", fontFamily: "var(--font-display)" }}>
           Payment received
         </h1>
         <p className="muted" style={{ margin: "0 auto", maxWidth: 360, fontSize: 14, lineHeight: 1.5 }}>
@@ -47,13 +44,8 @@ export function PayFailurePage() {
   return (
     <Shell title="Payment didn't go through">
       <div style={{ textAlign: "center" }}>
-        <div style={{ ...tickStyle, background: "#FCE2DC", color: "#B83520" }}>
-          <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M15 9l-6 6M9 9l6 6" />
-          </svg>
-        </div>
-        <h1 style={{ fontSize: 26, margin: "16px 0 8px", fontFamily: "var(--font-display)" }}>
+        <Anim name="payment-failed" size={160} />
+        <h1 style={{ fontSize: 26, margin: "8px 0 8px", fontFamily: "var(--font-display)" }}>
           Payment didn't go through
         </h1>
         <p className="muted" style={{ margin: "0 auto", maxWidth: 380, fontSize: 14, lineHeight: 1.5 }}>
@@ -125,17 +117,6 @@ const brandStyle: React.CSSProperties = {
   marginBottom: 24,
   paddingBottom: 18,
   borderBottom: "1px solid var(--rule)",
-};
-const tickStyle: React.CSSProperties = {
-  width: 80,
-  height: 80,
-  borderRadius: "50%",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(31, 111, 74, 0.12)",
-  color: "var(--success, #1F6F4A)",
-  margin: "0 auto",
 };
 const refStyle: React.CSSProperties = {
   marginTop: 18,
