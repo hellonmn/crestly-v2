@@ -45,49 +45,77 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
    desktop (≥960px) because the original CSS expected the sidebar to
    carry the user widget there. We've moved both the user widget AND
    the brand-block into the topbar across every viewport. */
+/* Topbar height — used in two places (the topbar itself and the
+   body's padding-top so content doesn't disappear beneath it). */
+const TOPBAR_HEIGHT = 60;
+
 const SHELL_OVERRIDES_CSS = `
-  /* Kill the dark band at the top once and for all. The default
-     stylesheet leaves <html> transparent which lets the platform/
-     browser default (often a dark theme) bleed in above sticky
-     elements. Force every layer white at the very top. */
-  html, body { background: var(--white); }
-  body { min-height: 100vh; }
-  /* A zero-pixel ::before just anchors the body's bg colour at the
-     top of the viewport even when the page is empty. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0 0 auto 0;
-    height: 1px;
+  /* Base layers: paint everything from html down to ensure NO chrome
+     / theme / extension can bleed through above the topbar. */
+  html, body, #root {
     background: var(--white);
-    z-index: 100;
-    pointer-events: none;
+    margin: 0;
+    padding: 0;
   }
+  body { min-height: 100vh; }
+
+  /* Topbar is FIXED — not sticky — so it always paints over the very
+     top of the viewport regardless of body padding, parent overflow,
+     or any browser quirk. Content pads down by TOPBAR_HEIGHT to clear it. */
+  .topbar {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    min-height: ${TOPBAR_HEIGHT}px;
+    padding: 8px 20px;
+    background: var(--white);
+    border-bottom: 1px solid var(--rule);
+    box-sizing: border-box;
+  }
+  /* Logo + name strip on the left. The SVG must be a block so the
+     line-height of any neighbouring text doesn't crop its top edge. */
+  .topbar__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .topbar__brand svg,
+  .topbar__brand img {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  /* Push the rest of the app down so it sits below the fixed topbar. */
+  body { padding-top: ${TOPBAR_HEIGHT}px; }
 
   /* The main content area keeps the cream-soft surface. */
   .app, .app__main { background: var(--cream-soft); }
 
   @media (min-width: 960px) {
-    .topbar {
-      display: flex !important;
-      align-items: center;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      padding: 10px 20px;
-      background: var(--white);
-      border-bottom: 1px solid var(--rule);
-    }
-    .topbar .topbar__brand { flex: 0 0 auto; }
-
     /* Sidebar's huge brand-block is redundant on desktop — only show
        it inside the mobile drawer. */
     .app__nav .brand-block--mobile-only { display: none; }
-    .app__nav { padding-top: 12px; }
+    /* Sidebar pins to TOPBAR_HEIGHT (not 0) so it never slides under
+       the fixed topbar. Height shrinks accordingly so the bottom of
+       the sidebar matches the viewport bottom. */
+    .app__nav {
+      padding-top: 12px;
+      top: ${TOPBAR_HEIGHT}px !important;
+      height: calc(100vh - ${TOPBAR_HEIGHT}px) !important;
+    }
   }
 
   @media (max-width: 959.98px) {
     .app__nav .brand-block--mobile-only { display: flex; }
   }
+
+  /* Scrim / install banner / spotlight all need to sit above the
+     topbar, so bump their z-index above 100. */
+  .scrim          { z-index: 110 !important; }
+  .spotlight-scrim, .spotlight { z-index: 1000 !important; }
 `;
