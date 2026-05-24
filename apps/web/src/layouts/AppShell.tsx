@@ -42,30 +42,39 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
 }
 
 /* Local overrides — by default @crestly/design hides the topbar on
-   desktop (≥960px) because the sidebar carries the user widget there.
-   We've moved the user widget to the topbar at all viewports, so:
-   re-show the topbar everywhere AND hide its brand on desktop so it
-   doesn't duplicate the sidebar's brand block. */
+   desktop (≥960px) because the original CSS expected the sidebar to
+   carry the user widget there. We've moved both the user widget AND
+   the brand-block into the topbar across every viewport. */
 const SHELL_OVERRIDES_CSS = `
+  /* Eliminate any html/body gap behind the sticky topbar — both
+     surfaces should share a colour so a 1-pixel rounding never shows
+     a darker strip at the very top of the viewport. */
+  html { background: var(--white); }
+  body { background: var(--cream-soft); }
+
   @media (min-width: 960px) {
     .topbar {
       display: flex !important;
+      align-items: center;
+      gap: 12px;
       position: sticky;
       top: 0;
       z-index: 50;
-      justify-content: flex-end;        /* user widget pinned right */
-      padding: 8px 20px;
+      padding: 10px 20px;
       background: var(--white);
       border-bottom: 1px solid var(--rule);
     }
-    /* Hide the small "Crestly." brand inside the topbar on desktop —
-       the sidebar brand-block already shows the full school name. */
-    .topbar .topbar__brand { display: none; }
+    /* Brand sits on the left at its natural width; user widget on
+       the right via margin-left: auto on the spotlight container. */
+    .topbar .topbar__brand { flex: 0 0 auto; }
+
+    /* Sidebar's huge brand-block is redundant on desktop now —
+       only show it inside the mobile drawer. */
+    .app__nav .brand-block--mobile-only { display: none; }
+    .app__nav { padding-top: 12px; }
   }
 
-  /* On mobile (<960px) the sidebar slides over as a drawer, so the
-     topbar's brand is the only visible school identity. */
   @media (max-width: 959.98px) {
-    .topbar .topbar__brand { display: inline-flex; align-items: center; gap: 8px; }
+    .app__nav .brand-block--mobile-only { display: flex; }
   }
 `;

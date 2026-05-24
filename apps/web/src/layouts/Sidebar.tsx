@@ -115,7 +115,11 @@ export function Sidebar({ schoolName }: { schoolName: string }) {
 
   return (
     <aside className="app__nav" id="app-nav">
-      <Link to="/" className="brand-block" style={{ textDecoration: "none", color: "inherit" }}>
+      {/* Brand-block has moved to the topbar on desktop. We still
+          render it here so the mobile drawer (where the topbar's
+          brand IS visible) has a familiar identity at the top of the
+          slide-out — but a stylesheet rule below hides it ≥960px. */}
+      <Link to="/" className="brand-block brand-block--mobile-only" style={{ textDecoration: "none", color: "inherit" }}>
         <div className="brand-block__logo">
           <CrestlyLogo width={32} height={32} />
         </div>
