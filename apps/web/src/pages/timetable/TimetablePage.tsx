@@ -684,9 +684,19 @@ function MasterGridSection({
           <thead>
             <tr>
               <th className="tt-grid__period-head">Period</th>
-              {data.sections.map((s) => (
-                <th key={s.label} title={s.label}>{s.label}</th>
-              ))}
+              {data.sections.map((s, i) => {
+                const next = data.sections[i + 1];
+                const isClassEnd = !!next && next.classSlug !== s.classSlug;
+                return (
+                  <th
+                    key={s.label}
+                    title={s.label}
+                    className={isClassEnd ? "tt-grid__class-end" : undefined}
+                  >
+                    {s.label}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -698,10 +708,15 @@ function MasterGridSection({
                     {p.startTime.slice(0, 5)}–{p.endTime.slice(0, 5)}
                   </div>
                 </th>
-                {data.sections.map((s) => {
+                {data.sections.map((s, i) => {
+                  const next = data.sections[i + 1];
+                  const isClassEnd = !!next && next.classSlug !== s.classSlug;
                   if (p.isBreak) {
                     return (
-                      <td key={s.label} className="tt-grid__cell tt-grid__cell--break">
+                      <td
+                        key={s.label}
+                        className={"tt-grid__cell tt-grid__cell--break " + (isClassEnd ? "tt-grid__class-end " : "")}
+                      >
                         <span>break</span>
                       </td>
                     );
@@ -715,7 +730,8 @@ function MasterGridSection({
                         "tt-grid__cell " +
                         (cell ? "tt-grid__cell--filled " : "tt-grid__cell--empty ") +
                         (isEditable ? "tt-grid__cell--editable " : "") +
-                        (cell?.mixed ? "tt-grid__cell--mixed " : "")
+                        (cell?.mixed ? "tt-grid__cell--mixed " : "") +
+                        (isClassEnd ? "tt-grid__class-end " : "")
                       }
                       onClick={isEditable ? () => onOpenCell({
                         classSlug: s.classSlug, sectionCode: s.sectionCode, period: p, cell,
@@ -1088,6 +1104,8 @@ const TT_CSS = `
     color: var(--ink-60);
     font-style: italic;
     font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
   }
 
   .tt-cell { display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
@@ -1117,11 +1135,71 @@ const TT_CSS = `
 
   .seg-btn-group { display: inline-flex; gap: 4px; }
 
-  /* Master view (periods × sections) — many more columns than the
-     section view, so cells are narrower and the table scrolls wider. */
-  .tt-grid--master { min-width: 1100px; }
-  .tt-grid--master thead th { min-width: 110px; }
-  .tt-grid--master tbody th.tt-grid__period { width: 140px; }
+  /* Master view (periods × sections). Many schools have 40–60+
+     section columns, so we let the table grow as wide as it needs
+     (no table-layout: fixed) and pin the period column to the
+     left so it never scrolls off-screen. */
+  .tt-grid--master {
+    min-width: 0;
+    table-layout: auto;
+    width: max-content;        /* shrink-wrap to the widest row */
+  }
+  .tt-grid--master thead th {
+    min-width: 130px;
+    white-space: nowrap;
+    padding: 10px 12px;
+    font-size: 12px;           /* a touch bigger — easier to scan */
+    letter-spacing: .02em;
+  }
+  /* Sticky period column — head + body cells. */
+  .tt-grid--master thead th.tt-grid__period-head {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--cream);
+    box-shadow: 1px 0 0 var(--rule);
+    min-width: 140px;
+  }
+  .tt-grid--master tbody th.tt-grid__period {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--cream-soft);
+    box-shadow: 1px 0 0 var(--rule-soft);
+    min-width: 140px;
+  }
+  /* Cells stay a sensible width and ellipsis long content instead
+     of letting it spill across columns. */
+  .tt-grid--master .tt-grid__cell {
+    min-width: 130px;
+    max-width: 180px;
+    vertical-align: top;
+  }
+  .tt-grid--master .tt-cell { min-width: 0; }
+  .tt-grid--master .tt-cell__subject,
+  .tt-grid--master .tt-cell__teacher,
+  .tt-grid--master .tt-cell__second,
+  .tt-grid--master .tt-cell__room {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  /* At 480+ empty cells the dashed "+ assign" chip is visual noise.
+     Hide it in master view; the hover state still indicates clickability. */
+  .tt-grid--master .tt-grid__cell--empty .tt-cell-add { display: none; }
+  .tt-grid--master .tt-grid__cell--empty {
+    background:
+      radial-gradient(circle, var(--rule-soft) 1px, transparent 1px) center / 8px 8px,
+      var(--cream-soft);
+  }
+
+  /* Thicker right-border between classes (e.g. between 6-E and 7-A)
+     so the eye can find the class boundary in a sea of sections. */
+  .tt-grid--master .tt-grid__class-end {
+    border-right: 2px solid var(--rule) !important;
+  }
+
   .tt-grid__cell--mixed {
     background: linear-gradient(0deg, rgba(245, 158, 11, .08), rgba(245, 158, 11, .08)),
                 var(--white);
