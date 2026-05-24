@@ -10,6 +10,8 @@ import {
 } from "./hooks";
 import { QueryError } from "@/components/QueryError";
 import { Anim } from "@/components/Anim";
+import { useToast } from "@/components/Toast";
+import { useShortcut } from "@/components/Shortcuts";
 import { useAuth } from "@/lib/auth-store";
 import { getErrorMessage } from "@/lib/api";
 import type { TimetablePeriod } from "@crestly/shared";
@@ -49,6 +51,15 @@ export function PeriodsPage() {
   const { data: periods, isLoading, error, refetch, isFetching } = periodsQuery;
 
   const [editing, setEditing] = useState<TimetablePeriod | "new" | null>(null);
+
+  // Page-specific shortcut — press "n" to open the new-period form.
+  useShortcut({
+    keys: "n",
+    description: "Add a new period",
+    group: "On this page",
+    handler: () => { if (canManage) setEditing("new"); },
+    blockInInputs: true,
+  });
 
   const teaching = (periods ?? []).filter((p) => !p.isBreak).length;
   const breaks   = (periods ?? []).filter((p) =>  p.isBreak).length;
@@ -216,6 +227,7 @@ function PeriodModal({
 
   const save   = useSavePeriod(initial?.id);
   const remove = useDeletePeriod();
+  const toast  = useToast();
 
   const mins = durationMinutes(startTime, endTime);
 
@@ -246,13 +258,17 @@ function PeriodModal({
 
   async function onDelete() {
     if (!initial) return;
-    if (!confirm(`Delete period "${initial.name}"? All cells in this row are deleted too.`)) return;
-    try {
-      await remove.mutateAsync(initial.id);
-      setDone({ type: "delete", label: "Period deleted" });
-    } catch (e) {
-      setErr(getErrorMessage(e, "Failed to delete"));
-    }
+    // Close the modal immediately + show an undoable toast. The actual API
+    // call only fires after the toast times out (5s); if the user clicks
+    // Undo, the period is never deleted at all.
+    const target = initial;
+    onClose();
+    const result = await toast.undoable(
+      `Deleted "${target.name}"`,
+      () => remove.mutateAsync(target.id),
+      { timeoutMs: 5000 },
+    );
+    if (result === "done") toast.success(`Period "${target.name}" deleted`);
   }
 
   // When `done` is set, the modal frame stays — same width, same chrome —

@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
 import { useReceipts } from "./hooks";
 import type { FeePaymentMethod } from "@crestly/shared";
+import { openWhatsappShare, receiptMessage } from "@/lib/whatsapp-share";
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -301,6 +302,28 @@ export function ReceiptsListPage() {
                 {money(p.amount)}
               </span>
               <span style={{ textAlign: "right", display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                {!p.isVoided && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    title="Share receipt on WhatsApp"
+                    onClick={(e) => {
+                      e.preventDefault(); e.stopPropagation();
+                      openWhatsappShare({
+                        message: receiptMessage({
+                          studentName: p.studentName,
+                          className: `${p.class}-${p.section}`,
+                          receiptNo: p.receiptNo,
+                          amountRs: p.amount,
+                          paidOn: p.paidOn,
+                          method: methodLabel(p.method),
+                        }),
+                      });
+                    }}
+                  >
+                    <Icon name="whatsapp" size={13} />
+                  </button>
+                )}
                 <a
                   href={`/print/receipt/${p.id}?auto=1`}
                   target="_blank"

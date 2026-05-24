@@ -5,6 +5,8 @@ import { Topbar } from "./Topbar";
 import { InstallPwaBanner } from "@/components/InstallPwaBanner";
 import { Spotlight } from "@/components/Spotlight";
 import { AiAssistant } from "@/components/AiAssistant";
+import { ToastProvider } from "@/components/Toast";
+import { ShortcutsProvider, ShortcutsCheatSheet } from "@/components/Shortcuts";
 
 /**
  * Full Crestly app shell. The class names + DOM structure mirror
@@ -26,20 +28,23 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
   }, []);
 
   return (
-    <>
-      <Topbar schoolName={schoolName} />
-      <div className="scrim" id="drawer-scrim" aria-hidden="true" />
-      <div className="app">
-        <Sidebar schoolName={schoolName} />
-        <main className="app__main">
-          <Outlet />
-        </main>
-      </div>
-      <InstallPwaBanner />
-      <Spotlight />
-      <AiAssistant />
-      <style>{SHELL_OVERRIDES_CSS}</style>
-    </>
+    <ToastProvider>
+      <ShortcutsProvider>
+        <Topbar schoolName={schoolName} />
+        <div className="scrim" id="drawer-scrim" aria-hidden="true" />
+        <div className="app">
+          <Sidebar schoolName={schoolName} />
+          <main className="app__main">
+            <Outlet />
+          </main>
+        </div>
+        <InstallPwaBanner />
+        <Spotlight />
+        <AiAssistant />
+        <ShortcutsCheatSheet />
+        <style>{SHELL_OVERRIDES_CSS}</style>
+      </ShortcutsProvider>
+    </ToastProvider>
   );
 }
 
