@@ -34,12 +34,30 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
           <Outlet />
         </main>
       </div>
-      <footer className="app-credit" role="contentinfo">
-        Powered by <strong>Shadowbiz Startups Developer</strong>
-        <span className="app-credit__dot" />
-      </footer>
       <InstallPwaBanner />
       <Spotlight />
+      <style>{SHELL_OVERRIDES_CSS}</style>
     </>
   );
 }
+
+/* Local overrides — by default @crestly/design hides the topbar on
+   desktop (≥960px) because the sidebar carries the user widget there.
+   We've moved the user widget to the topbar across all viewports per
+   the latest design call, so re-show the topbar at every width and
+   pad the desktop layout to clear it. */
+const SHELL_OVERRIDES_CSS = `
+  @media (min-width: 960px) {
+    .topbar {
+      display: flex !important;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .app {
+      /* Add a tiny top gap so the sticky topbar doesn't overlap the
+         scroll edge of the main column. */
+      padding-top: 0;
+    }
+  }
+`;

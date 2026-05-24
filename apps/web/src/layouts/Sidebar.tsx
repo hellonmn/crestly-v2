@@ -169,16 +169,6 @@ export function Sidebar({ schoolName }: { schoolName: string }) {
         ))}
       </div>
 
-      {user && (
-        <Link to="/logout" className="user-block" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="user-block__avi">{user.name?.[0]?.toUpperCase() ?? "?"}</div>
-          <div className="user-block__body">
-            <div className="user-block__name">{user.name}</div>
-            <div className="user-block__role">{user.roleName ?? "—"}</div>
-          </div>
-          <Icon name="logout" size={14} />
-        </Link>
-      )}
     </aside>
   );
 }
