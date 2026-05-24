@@ -69,6 +69,29 @@ export class TeamService {
     return toDto(row);
   }
 
+  /**
+   * Lightweight team list — only the fields a picker needs.
+   * Returns ALL active users; the caller filters / ranks.
+   * Open to any logged-in user (see controller).
+   */
+  async pickable(): Promise<TeamListResponse> {
+    const rows = await this.prisma.db.user.findMany({
+      where: { status: "active" },
+      include: { role: true },
+      orderBy: [{ name: "asc" }],
+    });
+    return {
+      items: rows.map(toDto),
+      total: rows.length,
+      page: 1,
+      pageSize: rows.length,
+      totalActive: rows.length,
+      totalInactive: 0,
+      departments: [],
+      rolesCount: 0,
+    };
+  }
+
   async create(input: TeamUpsert): Promise<TeamMember> {
     if (input.phone) {
       const existing = await this.prisma.db.user.findFirst({

@@ -20,6 +20,20 @@ export function useTeamList(query: Partial<TeamListQuery>) {
   });
 }
 
+/**
+ * Lightweight picker list — open to every logged-in user.
+ * Use this from picker/dropdown UIs that need to surface staff names
+ * but don't require the viewer to have team.view permission (e.g.
+ * a class teacher assigning a teacher to their section).
+ */
+export function usePickableTeam() {
+  return useQuery({
+    queryKey: [...KEY, "pickable"],
+    queryFn: async () => (await api.get<TeamListResponse>("/team/pickable")).data,
+    staleTime: 60_000,
+  });
+}
+
 export function useTeamMember(id: number | undefined) {
   return useQuery({
     queryKey: [...KEY, "one", id],

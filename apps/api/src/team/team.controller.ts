@@ -15,6 +15,20 @@ export class TeamController {
     return this.team.list(query);
   }
 
+  /**
+   * Lightweight picker list — id, name, designation, department,
+   * roleSlug, classTeacherOf. Used by the Classes section-edit
+   * teacher picker, the Admissions assign-to dropdown, the
+   * Timetable teacher filter, etc.
+   *
+   * Open to every logged-in user (NOT gated by team.view) because
+   * many roles need to PICK a teammate even when they shouldn't
+   * see the full HR record — e.g. a class teacher assigning
+   * another teacher to a section.
+   */
+  @Get("pickable")
+  pickable() { return this.team.pickable(); }
+
   @Get(":id")
   @RequirePerm("team.view")
   findOne(@Param("id", ParseIntPipe) id: number) {

@@ -12,7 +12,7 @@ import {
   useSaveClass,
   useSaveSection,
 } from "./hooks";
-import { useTeamList } from "@/pages/team/hooks";
+import { usePickableTeam } from "@/pages/team/hooks";
 import { getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth-store";
 import type { SchoolClass, Section, TeamMember } from "@crestly/shared";
@@ -408,15 +408,16 @@ function SectionEditModal({
   const remove = useDeleteSection();
 
   // Fetch team INSIDE the modal so the user sees loading/error/retry
-  // states directly tied to the modal's own lifecycle. This way a
-  // delayed API boot or stale React Query cache never leaves the
-  // picker silently empty.
+  // states directly tied to the modal's own lifecycle. usePickableTeam
+  // hits /api/team/pickable which is open to any logged-in user (no
+  // team.view permission required) — so a class teacher can assign
+  // another teacher even when they can't see the full HR record.
   const {
     data: teamResp,
     isLoading: teamLoading,
     isError: teamError,
     refetch: refetchTeam,
-  } = useTeamList({ page: 1, pageSize: 500, status: "active" });
+  } = usePickableTeam();
   const team: TeamMember[] = teamResp?.items ?? [];
 
   // Show ALL active staff in the picker — the PHP version is permissive

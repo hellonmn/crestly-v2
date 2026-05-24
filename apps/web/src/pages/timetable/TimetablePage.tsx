@@ -4,7 +4,7 @@ import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { useTimetable } from "./hooks";
 import { useClasses } from "@/pages/classes/hooks";
-import { useTeamList } from "@/pages/team/hooks";
+import { usePickableTeam } from "@/pages/team/hooks";
 import type { TimetableCell } from "@crestly/shared";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -16,7 +16,7 @@ export function TimetablePage() {
   const [teacherUserId, setTeacherUserId] = useState<string>("");
 
   const { data: classes } = useClasses();
-  const { data: team } = useTeamList({ page: 1, pageSize: 500, status: "active" });
+  const { data: team } = usePickableTeam();
 
   // Sections of the currently-picked class — derived from the classes payload.
   const sectionOptions = useMemo(() => {

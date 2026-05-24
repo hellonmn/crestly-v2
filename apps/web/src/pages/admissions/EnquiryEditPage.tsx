@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { PageHead } from "@/components/PageHead";
 import { useEnquiry, useSaveEnquiry } from "./hooks";
 import { useClasses } from "@/pages/classes/hooks";
-import { useTeamList } from "@/pages/team/hooks";
+import { usePickableTeam } from "@/pages/team/hooks";
 import { getErrorMessage } from "@/lib/api";
 import { EnquiryUpsertSchema, type EnquiryUpsertInput } from "@crestly/shared";
 
@@ -38,7 +38,7 @@ export function EnquiryEditPage() {
 
   const { data: existing, isLoading } = useEnquiry(enquiryId);
   const { data: classes } = useClasses();
-  const { data: team }    = useTeamList({ page: 1, pageSize: 200, status: "active" });
+  const { data: team }    = usePickableTeam();
   const save = useSaveEnquiry(enquiryId);
 
   const form = useForm<EnquiryUpsertInput>({ defaultValues: blank });

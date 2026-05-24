@@ -4,7 +4,7 @@ import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { Skeleton } from "@/components/Skeleton";
 import { useSaveVoucher, useVoucher } from "./hooks";
-import { useTeamList } from "@/pages/team/hooks";
+import { usePickableTeam } from "@/pages/team/hooks";
 import { getErrorMessage } from "@/lib/api";
 import { VoucherCreateSchema, type VoucherCreateInput } from "@crestly/shared";
 
@@ -48,7 +48,7 @@ export function VoucherEditPage() {
 
   const { data: existing, isLoading } = useVoucher(voucherId);
   const save = useSaveVoucher(voucherId);
-  const { data: team } = useTeamList({ pageSize: 500, page: 1, status: "active" });
+  const { data: team } = usePickableTeam();
 
   // Form state — initialized from query string prefill (add mode) or `existing`.
   const [title, setTitle]               = useState(isNew ? (params.get("title") ?? "") : "");
