@@ -28,7 +28,6 @@ export function ClassesPage() {
   const { user } = useAuth();
   const canManage = (user?.permissions ?? []).includes("classes.manage");
   const { data: classes, isLoading } = useClasses();
-  const { data: team } = useTeamList({ page: 1, pageSize: 500, status: "active" });
 
   const [editingClass, setEditingClass]     = useState<SchoolClass | "new" | null>(null);
   const [editingSection, setEditingSection] = useState<
@@ -143,7 +142,6 @@ export function ClassesPage() {
       {editingSection && (
         <SectionEditModal
           state={editingSection}
-          team={team?.items ?? []}
           onClose={() => setEditingSection(null)}
         />
       )}
@@ -388,12 +386,11 @@ function ClassEditModal({ initial, onClose }: { initial: SchoolClass | null; onC
 /* ------------------------------------------------------------------ */
 
 function SectionEditModal({
-  state, team, onClose,
+  state, onClose,
 }: {
   state:
     | { kind: "new"; classId: number; classSlug: string; classWing: string | null }
     | { kind: "edit"; section: Section; classSlug: string; classWing: string | null };
-  team: TeamMember[];
   onClose: () => void;
 }) {
   const isNew = state.kind === "new";
@@ -409,6 +406,18 @@ function SectionEditModal({
 
   const save   = useSaveSection(initial?.id);
   const remove = useDeleteSection();
+
+  // Fetch team INSIDE the modal so the user sees loading/error/retry
+  // states directly tied to the modal's own lifecycle. This way a
+  // delayed API boot or stale React Query cache never leaves the
+  // picker silently empty.
+  const {
+    data: teamResp,
+    isLoading: teamLoading,
+    isError: teamError,
+    refetch: refetchTeam,
+  } = useTeamList({ page: 1, pageSize: 500, status: "active" });
+  const team: TeamMember[] = teamResp?.items ?? [];
 
   // Show ALL active staff in the picker — the PHP version is permissive
   // here because every school has a different idea of what counts as a
@@ -561,9 +570,36 @@ function SectionEditModal({
             </div>
 
             <div className="teacher-combo__list" role="listbox">
-              {team.length === 0 ? (
+              {teamLoading ? (
                 <div className="teacher-combo__empty muted body-s">
-                  No staff loaded. The API may have been offline when this page opened — close and re-open this modal to retry.
+                  <span className="tc-spinner" />
+                  Loading staff…
+                </div>
+              ) : teamError ? (
+                <div className="teacher-combo__empty muted body-s">
+                  <div style={{ color: "var(--error)", marginBottom: 6 }}>
+                    Couldn't load staff. The API might be offline.
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => refetchTeam()}
+                  >
+                    <Icon name="settings" size={12} /> Retry
+                  </button>
+                </div>
+              ) : team.length === 0 ? (
+                <div className="teacher-combo__empty muted body-s">
+                  <div style={{ marginBottom: 6 }}>
+                    No active staff found. Add someone in <Link to="/team">Team</Link> first.
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => refetchTeam()}
+                  >
+                    Refresh
+                  </button>
                 </div>
               ) : eligibleTeachers.length === 0 ? (
                 <div className="teacher-combo__empty muted body-s">
@@ -821,6 +857,17 @@ const CLS_CSS = `
     background: rgba(242, 92, 25, 0.08);
     color: var(--orange-deep);
   }
+  .tc-spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid var(--rule);
+    border-top-color: var(--orange);
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: -2px;
+    animation: tc-spin 0.6s linear infinite;
+  }
+  @keyframes tc-spin { to { transform: rotate(360deg); } }
   .teacher-combo__empty {
     padding: 18px 12px;
     text-align: center;
