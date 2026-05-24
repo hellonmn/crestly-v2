@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { InstallPwaBanner } from "@/components/InstallPwaBanner";
 import { Spotlight } from "@/components/Spotlight";
+import { AiAssistant } from "@/components/AiAssistant";
 
 /**
  * Full Crestly app shell. The class names + DOM structure mirror
@@ -36,6 +37,7 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
       </div>
       <InstallPwaBanner />
       <Spotlight />
+      <AiAssistant />
       <style>{SHELL_OVERRIDES_CSS}</style>
     </>
   );

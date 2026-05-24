@@ -89,6 +89,7 @@ const PAGE_INDEX: PageEntry[] = [
   { title: "WhatsApp templates", href: "/settings/whatsapp/templates", group: "Pages", keywords: "whatsapp binding action" },
   { title: "WhatsApp log",       href: "/settings/whatsapp/log",   group: "Pages", keywords: "whatsapp sent failed message" },
   { title: "Payment gateway",    href: "/settings/payment-gateway", group: "Pages", keywords: "hdfc razorpay checkout" },
+  { title: "AI assistant",       href: "/settings/ai",             group: "Pages", keywords: "ai chat groq llm assistant" },
   { title: "Features",           href: "/features",                group: "Pages", keywords: "addon plugin unlock" },
 ];
 

@@ -205,6 +205,18 @@ export function SettingsPage() {
             </svg>
           }
         />
+        <SubTile
+          to="/settings/ai"
+          tint="mint"
+          label="AI assistant"
+          icon={
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a4 4 0 0 1 4 4v1.5a4 4 0 0 1 4 4V14a4 4 0 0 1-4 4h-1l-3 3-3-3H8a4 4 0 0 1-4-4v-2.5a4 4 0 0 1 4-4V6a4 4 0 0 1 4-4z"/>
+              <circle cx="9.5" cy="11.5" r=".5" fill="currentColor"/>
+              <circle cx="14.5" cy="11.5" r=".5" fill="currentColor"/>
+            </svg>
+          }
+        />
       </div>
 
       {/* Quick status — app time + geofence status */}

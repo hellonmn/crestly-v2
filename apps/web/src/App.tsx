@@ -103,6 +103,7 @@ import { WhatsappTemplatesPage } from "@/pages/whatsapp/WhatsappTemplatesPage";
 import { WhatsappLogPage } from "@/pages/whatsapp/WhatsappLogPage";
 import { FeaturesStorePage } from "@/pages/features-store/FeaturesStorePage";
 import { PaymentGatewaySettingsPage } from "@/pages/payment-gateway/PaymentGatewaySettingsPage";
+import { AiSettingsPage } from "@/pages/ai/AiSettingsPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -258,6 +259,7 @@ export function App() {
         <Route path="settings/whatsapp/templates" element={<WhatsappTemplatesPage />} />
         <Route path="settings/whatsapp/log" element={<WhatsappLogPage />} />
         <Route path="settings/payment-gateway" element={<PaymentGatewaySettingsPage />} />
+        <Route path="settings/ai" element={<AiSettingsPage />} />
         <Route path="features" element={<FeaturesStorePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -12,6 +12,17 @@
 export { LoginInputSchema, LoginResponseSchema } from "./auth";
 export type { LoginInput, LoginResponse, CurrentUser } from "./auth";
 
+// --- ai assistant ---
+export {
+  AI_PROVIDERS, GROQ_MODELS,
+  AiSettingsSchema, AiSettingsUpdateSchema, AiTestResultSchema,
+  AiChatMessageSchema, AiAskInputSchema, AiAskResponseSchema,
+} from "./ai";
+export type {
+  AiProvider, AiSettings, AiSettingsUpdate, AiTestResult,
+  AiChatMessage, AiAskInput, AiAskResponse,
+} from "./ai";
+
 // --- students ---
 export {
   GenderSchema,

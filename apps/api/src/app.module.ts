@@ -37,6 +37,7 @@ import { HostelModule } from "./hostel/hostel.module";
 import { TransportModule } from "./transport/transport.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { WhatsappModule } from "./whatsapp/whatsapp.module";
+import { AiModule } from "./ai/ai.module";
 import { FeaturesModule } from "./features/features.module";
 import { SuperadminModule } from "./superadmin/superadmin.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
@@ -86,6 +87,7 @@ import { JwtAuthGuard } from "./auth/jwt-auth.guard";
     HostelModule,
     TransportModule,
     WhatsappModule,
+    AiModule,
     SearchModule,
     PaymentsModule,
     FeaturesModule,
