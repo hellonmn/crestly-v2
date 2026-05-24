@@ -602,7 +602,9 @@
 /* ---------- INSTALL MODAL (works on both desktop and mobile) ----------
    The banner only shows on mobile, but the modal can also be opened
    from the "More → Install app" entry on desktop. */
-.install-modal.is-open { display: block; position: fixed; inset: 0; z-index: 80; }
+/* z-index must beat the fixed topbar (z=100) so the scrim covers the
+   header too. The bottom-nav sits at z=80, so 200 is safely above both. */
+.install-modal.is-open { display: block; position: fixed; inset: 0; z-index: 200; }
 .install-modal__scrim {
   position: absolute; inset: 0;
   background: rgba(16,13,10,0.5);
@@ -628,6 +630,9 @@
   .install-modal.is-open .install-modal__sheet {
     bottom: 50%; transform: translate(-50%, 50%);
     border-radius: var(--r-5);
+    /* Clip the action bar (with its own bg + top border) to the
+       rounded corners — without this the bottom looks flat. */
+    overflow: hidden;
   }
   .install-modal.is-open .install-modal__sheet { transform: translate(-50%, 50%); }
 }

@@ -4,6 +4,11 @@ import { Icon } from "@crestly/icons";
 /**
  * CDS-faithful modal — bottom sheet on mobile (≤600px), centered dialog above.
  * Mirrors the `.install-modal` pattern in erp/includes/footer.php.
+ *
+ * Uses `install-modal__close` for the dismiss button so it matches the
+ * cream-circle styling everywhere else in the app, and pins it to the
+ * top-right of the head row so the title can be any height without
+ * dragging the X around.
  */
 export function Modal({
   open,
@@ -39,10 +44,12 @@ export function Modal({
       <div className="install-modal__sheet" style={{ maxWidth: widths[size] }}>
         <div className="install-modal__handle" aria-hidden="true" />
         <div className="install-modal__head">
-          <div className="display-s">{title}</div>
+          <h3 className="install-modal__title" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+            {title}
+          </h3>
           <button
             type="button"
-            className="btn btn--ghost btn--icon-only btn--sm"
+            className="install-modal__close"
             onClick={onClose}
             aria-label="Close"
           >
