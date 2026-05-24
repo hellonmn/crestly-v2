@@ -1,55 +1,85 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CrestlyLogo, Icon } from "@crestly/icons";
 import { authStore, useAuth } from "@/lib/auth-store";
 import { BrandDot } from "@/components/BrandDot";
-import { SpotlightTriggerHint, useOpenSpotlight } from "@/components/Spotlight";
+import { useOpenSpotlight } from "@/components/Spotlight";
 
 /**
- * Top app bar. Sticky on every viewport. Shows:
- *   left   — Crestly logo + school name
- *   middle — flex spacer
- *   right  — Search (⌘K) trigger, then a profile chip that opens
- *            a small dropdown with My profile / Settings / Log out.
+ * Top app bar — fixed across every viewport, structured as:
+ *
+ *   [LOGO]  Crestly.            ───  [date pill]  [⌘K search]  [🔔]  [profile▾]
+ *           school name
  */
 export function Topbar({ schoolName }: { schoolName: string }) {
   const { user } = useAuth();
   const openSpotlight = useOpenSpotlight();
 
+  const dateLabel = useMemo(() => {
+    const d = new Date();
+    return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "2-digit", month: "short" }).format(d).toUpperCase();
+  }, []);
+
   return (
-    <header className="topbar">
-      <Link to="/" className="topbar__brand" style={{ textDecoration: "none", color: "inherit" }}>
-        <CrestlyLogo width={28} height={28} />
-        <span className="topbar__brand-name">
-          {schoolName}
-          <BrandDot />
+    <header className="topbar topbar--rich">
+      {/* ── Left: logo + brand stack ───────────────────────── */}
+      <Link to="/" className="tb-brand" style={{ textDecoration: "none", color: "inherit" }}>
+        <span className="tb-brand__logo">
+          <CrestlyLogo width={34} height={34} />
+        </span>
+        <span className="tb-brand__txt">
+          <span className="tb-brand__name">
+            Crestly<BrandDot />
+          </span>
+          <span className="tb-brand__sub">{schoolName}</span>
         </span>
       </Link>
 
+      {/* ── Spacer ─────────────────────────────────────────── */}
+      <span className="tb-flex" />
+
       {user && (
-        <div className="topbar__spotlight">
-          <SpotlightTriggerHint onOpen={openSpotlight} />
-        </div>
+        <>
+          {/* Date pill — quick "what day is it" anchor */}
+          <span className="tb-date" title="Today">
+            <Icon name="calendar" size={13} />
+            <span>{dateLabel}</span>
+          </span>
+
+          {/* Search trigger — looks like a real input, opens Cmd-K */}
+          <button type="button" className="tb-search" onClick={openSpotlight} aria-label="Open search">
+            <Icon name="search" size={14} />
+            <span className="tb-search__label">Search students, vouchers, pages…</span>
+            <span className="tb-search__kbd">
+              <kbd>{isMac() ? "⌘" : "Ctrl"}</kbd>
+              <kbd>K</kbd>
+            </span>
+          </button>
+
+          {/* Notifications bell — placeholder count = 0; wire to /notifications */}
+          <Link to="/notifications" className="tb-bell" aria-label="Notifications" title="Notifications">
+            <Icon name="bell" size={18} />
+          </Link>
+
+          {/* Profile chip with dropdown */}
+          <ProfileMenu name={user.name ?? "User"} roleName={user.roleName ?? null} userId={user.id ?? null} />
+        </>
       )}
 
-      {user ? (
-        <ProfileMenu name={user.name ?? "User"} roleName={user.roleName ?? null} userId={user.id ?? null} />
-      ) : (
-        <Link to="/login" className="topbar__user">
-          <span className="topbar__user-avi" style={{ background: "var(--cream)", color: "var(--ink)" }}>
-            ?
-          </span>
-          <span className="topbar__user-name">Log in</span>
+      {!user && (
+        <Link to="/login" className="tb-login">
+          <Icon name="users" size={14} />
+          Log in
         </Link>
       )}
 
-      <style>{TOPBAR_LOCAL_CSS}</style>
+      <style>{TOPBAR_CSS}</style>
     </header>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Profile menu — click to open, outside-click / Esc to close          */
+/* Profile menu                                                        */
 /* ------------------------------------------------------------------ */
 
 function ProfileMenu({
@@ -66,7 +96,6 @@ function ProfileMenu({
   const canSettings = (user?.permissions ?? []).includes("settings.manage") ||
                        user?.roleSlug === "admin" || user?.roleSlug === "principal";
 
-  // Outside click + Esc to close
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
@@ -83,10 +112,7 @@ function ProfileMenu({
     };
   }, [open]);
 
-  function go(to: string) {
-    setOpen(false);
-    navigate(to);
-  }
+  function go(to: string) { setOpen(false); navigate(to); }
   function logout() {
     setOpen(false);
     if (!window.confirm("Log out?")) return;
@@ -97,36 +123,36 @@ function ProfileMenu({
   const initials = (name.match(/\b\w/g) ?? []).slice(0, 2).join("").toUpperCase() || "?";
 
   return (
-    <div className="topbar__profile" ref={ref}>
+    <div className="tb-prof" ref={ref}>
       <button
         type="button"
-        className={`topbar__profile-btn ${open ? "is-open" : ""}`}
+        className={`tb-prof__btn ${open ? "is-open" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
         title={name}
       >
-        <span className="topbar__profile-avi">{initials}</span>
-        <span className="topbar__profile-stack">
-          <span className="topbar__profile-name">{name}</span>
-          {roleName && <span className="topbar__profile-role">{roleName}</span>}
+        <span className="tb-prof__avi">{initials}</span>
+        <span className="tb-prof__stack">
+          <span className="tb-prof__name">{name}</span>
+          {roleName && <span className="tb-prof__role">{roleName}</span>}
         </span>
-        <span className="topbar__profile-chev" aria-hidden="true">
+        <span className="tb-prof__chev" aria-hidden="true">
           <Icon name="chev-down" size={14} />
         </span>
       </button>
 
       {open && (
-        <div className="topbar__profile-menu" role="menu">
-          <div className="topbar__profile-menu-head">
-            <span className="topbar__profile-avi" style={{ width: 40, height: 40, fontSize: 15 }}>{initials}</span>
-            <div className="topbar__profile-stack" style={{ minWidth: 0 }}>
-              <span className="topbar__profile-name" style={{ fontSize: 14 }}>{name}</span>
-              {roleName && <span className="topbar__profile-role">{roleName}</span>}
+        <div className="tb-prof__menu" role="menu">
+          <div className="tb-prof__menu-head">
+            <span className="tb-prof__avi" style={{ width: 44, height: 44, fontSize: 16 }}>{initials}</span>
+            <div className="tb-prof__stack" style={{ minWidth: 0 }}>
+              <span className="tb-prof__name" style={{ fontSize: 15 }}>{name}</span>
+              {roleName && <span className="tb-prof__role">{roleName}</span>}
             </div>
           </div>
 
-          <div className="topbar__profile-sep" />
+          <div className="tb-prof__sep" />
 
           {userId !== null && (
             <MenuItem icon="users" onClick={() => go(`/team/${userId}`)} label="My profile" sub="View your team record" />
@@ -136,15 +162,9 @@ function ProfileMenu({
           )}
           <MenuItem icon="ledger" onClick={() => go("/sessions")} label="Sessions" sub="Switch academic year" />
 
-          <div className="topbar__profile-sep" />
+          <div className="tb-prof__sep" />
 
-          <MenuItem
-            icon="logout"
-            onClick={logout}
-            label="Log out"
-            sub="End this session"
-            danger
-          />
+          <MenuItem icon="logout" onClick={logout} label="Log out" sub="End this session" danger />
         </div>
       )}
     </div>
@@ -164,125 +184,245 @@ function MenuItem({
     <button
       type="button"
       role="menuitem"
-      className={`topbar__profile-item ${danger ? "is-danger" : ""}`}
+      className={`tb-prof__item ${danger ? "is-danger" : ""}`}
       onClick={onClick}
     >
-      <span className="topbar__profile-item-icon">
+      <span className="tb-prof__item-ico">
         <Icon name={icon} size={14} />
       </span>
-      <span className="topbar__profile-item-text">
-        <span className="topbar__profile-item-label">{label}</span>
-        {sub && <span className="topbar__profile-item-sub">{sub}</span>}
+      <span className="tb-prof__item-txt">
+        <span className="tb-prof__item-label">{label}</span>
+        {sub && <span className="tb-prof__item-sub">{sub}</span>}
       </span>
     </button>
   );
 }
 
-const TOPBAR_LOCAL_CSS = `
-  .topbar__spotlight { margin-left: auto; margin-right: 12px; }
-  @media (max-width: 600px) {
-    .topbar__spotlight .spotlight-trigger__label { display: none; }
-    .topbar__spotlight .spotlight-trigger { padding: 6px 8px; }
+function isMac(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+}
+
+/* ============================================================
+   Styles — scoped under .topbar--rich so they only apply to
+   this richer redesign and don't clash with any existing
+   .topbar__* rules from the design system.
+   ============================================================ */
+
+const TOPBAR_CSS = `
+  /* ── Brand ─────────────────────────────────────────────── */
+  .topbar--rich .tb-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 6px;
+    border-radius: 10px;
+    flex: 0 0 auto;
+    transition: background 120ms ease;
+  }
+  .topbar--rich .tb-brand:hover { background: var(--cream-soft); }
+
+  .topbar--rich .tb-brand__logo {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--ink);
+    color: var(--cream);
+    flex-shrink: 0;
+  }
+  .topbar--rich .tb-brand__logo svg { display: block; }
+
+  .topbar--rich .tb-brand__txt {
+    display: flex; flex-direction: column;
+    min-width: 0;
+    line-height: 1.05;
+  }
+  .topbar--rich .tb-brand__name {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 19px;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+  }
+  .topbar--rich .tb-brand__sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-60);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
   }
 
-  /* ── Profile button ───────────────────────────────────── */
-  .topbar__profile {
-    position: relative;
+  .tb-flex { flex: 1; }
+
+  /* ── Date pill ─────────────────────────────────────────── */
+  .topbar--rich .tb-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--cream);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ink-80);
   }
-  .topbar__profile-btn {
+
+  /* ── Search ────────────────────────────────────────────── */
+  .topbar--rich .tb-search {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 8px 6px 8px;
+    padding: 8px 12px;
+    min-width: 280px;
     background: var(--cream-soft);
     border: 1px solid var(--rule);
     border-radius: 10px;
+    color: var(--ink-60);
+    cursor: text;
+    font: inherit;
+    font-size: 13px;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .topbar--rich .tb-search:hover {
+    background: var(--white);
+    border-color: var(--orange);
+    color: var(--ink);
+  }
+  .topbar--rich .tb-search__label {
+    flex: 1;
+    text-align: left;
+    color: var(--ink-60);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .topbar--rich .tb-search__kbd {
+    display: inline-flex; gap: 2px;
+  }
+  .topbar--rich .tb-search__kbd kbd {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-60);
+    line-height: 1;
+  }
+
+  /* ── Bell button ───────────────────────────────────────── */
+  .topbar--rich .tb-bell {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--cream-soft);
+    border: 1px solid var(--rule);
+    color: var(--ink-80);
+    text-decoration: none;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+  .topbar--rich .tb-bell:hover {
+    background: var(--white);
+    color: var(--ink);
+    border-color: var(--orange);
+  }
+
+  /* ── Profile chip + menu ───────────────────────────────── */
+  .topbar--rich .tb-prof { position: relative; }
+  .topbar--rich .tb-prof__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px 5px 6px;
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 10px;
     cursor: pointer;
-    color: inherit;
+    color: var(--cream);
     font: inherit;
     transition: background 120ms ease, border-color 120ms ease;
   }
-  .topbar__profile-btn:hover,
-  .topbar__profile-btn.is-open {
-    background: var(--white);
+  .topbar--rich .tb-prof__btn:hover,
+  .topbar--rich .tb-prof__btn.is-open {
+    background: var(--ink-90);
     border-color: var(--orange);
   }
-  .topbar__profile-avi {
-    width: 30px; height: 30px;
+  .topbar--rich .tb-prof__avi {
+    width: 32px; height: 32px;
     border-radius: 50%;
-    background: var(--ink);
-    color: var(--cream);
+    background: var(--orange);
+    color: #fff;
     display: inline-flex; align-items: center; justify-content: center;
-    font-weight: 700;
-    font-size: 12px;
+    font-weight: 800;
+    font-size: 13px;
     flex-shrink: 0;
   }
-  .topbar__profile-stack {
+  .topbar--rich .tb-prof__stack {
     display: flex; flex-direction: column;
     min-width: 0;
     line-height: 1.15;
     text-align: left;
   }
-  .topbar__profile-name {
-    font-weight: 600;
+  .topbar--rich .tb-prof__name {
+    font-weight: 700;
     font-size: 13px;
-    color: var(--ink);
+    color: var(--cream);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 160px;
   }
-  .topbar__profile-role {
+  .topbar--rich .tb-prof__role {
     font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--ink-60);
-    letter-spacing: 0.06em;
+    color: var(--cream-deep);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-top: 1px;
+    margin-top: 2px;
   }
-  .topbar__profile-chev {
+  .topbar--rich .tb-prof__chev {
     display: inline-flex;
-    color: var(--ink-60);
+    color: var(--cream-deep);
     transition: transform 120ms ease;
   }
-  .topbar__profile-btn.is-open .topbar__profile-chev { transform: rotate(180deg); }
+  .topbar--rich .tb-prof__btn.is-open .tb-prof__chev { transform: rotate(180deg); }
 
-  @media (max-width: 600px) {
-    .topbar__profile-stack { display: none; }
-    .topbar__profile-chev { display: none; }
-    .topbar__profile-btn { padding: 6px; }
-  }
-
-  /* ── Dropdown menu ─────────────────────────────────────── */
-  .topbar__profile-menu {
+  /* Menu */
+  .topbar--rich .tb-prof__menu {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 10px);
     right: 0;
-    min-width: 260px;
+    min-width: 280px;
     background: var(--white);
     border: 1px solid var(--rule);
     border-radius: 12px;
-    box-shadow: 0 16px 40px rgba(16,13,10,0.18), 0 4px 12px rgba(16,13,10,0.08);
+    box-shadow: 0 20px 50px rgba(16,13,10,0.18), 0 4px 12px rgba(16,13,10,0.08);
     padding: 6px;
-    z-index: 60;
-    animation: profile-menu-in 120ms cubic-bezier(.2,.9,.3,1.1);
+    z-index: 200;
+    animation: tb-menu-in 120ms cubic-bezier(.2,.9,.3,1.1);
   }
-  @keyframes profile-menu-in {
+  @keyframes tb-menu-in {
     from { opacity: 0; transform: translateY(-4px) scale(0.98); }
     to   { opacity: 1; transform: translateY(0)    scale(1); }
   }
-  .topbar__profile-menu-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  .topbar--rich .tb-prof__menu-head {
+    display: flex; align-items: center; gap: 12px;
     padding: 10px 12px;
   }
-  .topbar__profile-sep {
+  .topbar--rich .tb-prof__sep {
     height: 1px;
     background: var(--rule);
     margin: 4px 0;
   }
-  .topbar__profile-item {
+  .topbar--rich .tb-prof__item {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -297,38 +437,57 @@ const TOPBAR_LOCAL_CSS = `
     text-align: left;
     transition: background 80ms ease;
   }
-  .topbar__profile-item:hover {
-    background: var(--cream-soft);
-  }
-  .topbar__profile-item.is-danger:hover {
+  .topbar--rich .tb-prof__item:hover { background: var(--cream-soft); }
+  .topbar--rich .tb-prof__item.is-danger:hover {
     background: rgba(184, 53, 32, 0.06);
     color: var(--error);
   }
-  .topbar__profile-item-icon {
-    display: inline-flex;
-    align-items: center; justify-content: center;
-    width: 30px; height: 30px;
+  .topbar--rich .tb-prof__item-ico {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px;
     border-radius: 8px;
     background: var(--cream);
     color: var(--ink-60);
     flex-shrink: 0;
   }
-  .topbar__profile-item.is-danger .topbar__profile-item-icon {
+  .topbar--rich .tb-prof__item.is-danger .tb-prof__item-ico {
     background: rgba(184, 53, 32, 0.1);
     color: var(--error);
   }
-  .topbar__profile-item-text {
-    display: flex; flex-direction: column;
-    line-height: 1.2;
-    min-width: 0;
+  .topbar--rich .tb-prof__item-txt { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+  .topbar--rich .tb-prof__item-label { font-weight: 600; font-size: 13px; }
+  .topbar--rich .tb-prof__item-sub { font-size: 11px; color: var(--ink-60); margin-top: 1px; }
+
+  /* ── Responsive collapse ───────────────────────────────── */
+  @media (max-width: 1100px) {
+    .topbar--rich .tb-search { min-width: 200px; }
+    .topbar--rich .tb-search__label { font-size: 12px; }
   }
-  .topbar__profile-item-label {
+  @media (max-width: 900px) {
+    .topbar--rich .tb-date { display: none; }
+    .topbar--rich .tb-brand__sub { display: none; }
+    .topbar--rich .tb-search__label { display: none; }
+    .topbar--rich .tb-search { min-width: 0; padding: 8px 12px; gap: 8px; }
+  }
+  @media (max-width: 600px) {
+    .topbar--rich .tb-search { padding: 8px; }
+    .topbar--rich .tb-search__kbd { display: none; }
+    .topbar--rich .tb-prof__stack { display: none; }
+    .topbar--rich .tb-prof__chev { display: none; }
+    .topbar--rich .tb-prof__btn { padding: 4px; }
+    .topbar--rich .tb-bell { width: 34px; height: 34px; }
+  }
+
+  /* ── Login fallback (signed-out) ───────────────────────── */
+  .tb-login {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    background: var(--orange);
+    color: #fff;
+    border-radius: 10px;
+    text-decoration: none;
     font-weight: 600;
     font-size: 13px;
   }
-  .topbar__profile-item-sub {
-    font-size: 11px;
-    color: var(--ink-60);
-    margin-top: 1px;
-  }
+  .tb-login:hover { background: var(--orange-deep); }
 `;

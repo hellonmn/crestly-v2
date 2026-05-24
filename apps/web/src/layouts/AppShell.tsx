@@ -46,8 +46,9 @@ export function AppShell({ schoolName = "Crestly" }: { schoolName?: string }) {
    carry the user widget there. We've moved both the user widget AND
    the brand-block into the topbar across every viewport. */
 /* Topbar height — used in two places (the topbar itself and the
-   body's padding-top so content doesn't disappear beneath it). */
-const TOPBAR_HEIGHT = 60;
+   body's padding-top so content doesn't disappear beneath it).
+   Tall enough to hold the brand stack (logo block + name + sub-line). */
+const TOPBAR_HEIGHT = 68;
 
 const SHELL_OVERRIDES_CSS = `
   /* Base layers: paint everything from html down to ensure NO chrome
