@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Icon } from "@crestly/icons";
+import { Icon, type IconName } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { Skeleton } from "@/components/Skeleton";
 import { BrandDot } from "@/components/BrandDot";
+import { useOpenSpotlight } from "@/components/Spotlight";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-store";
 
@@ -372,6 +373,16 @@ export function DashboardPage() {
           </button>
         </div>
       )}
+
+      {/* ============== QUICK ACTIONS ============== */}
+      <QuickActions
+        canManageAttendance={(user?.permissions ?? []).includes("attendance.mark")}
+        canManageFees={(user?.permissions ?? []).includes("fees.manage")}
+        canCreateVouchers={(user?.permissions ?? []).includes("vouchers.create")}
+        canManageAdmissions={(user?.permissions ?? []).includes("admissions.manage")}
+        canPunch={(user?.permissions ?? []).includes("staff.punch")}
+        pendingApprovals={data?.allPending ?? 0}
+      />
 
       {/* Skeleton fallback while loading */}
       {isLoading && <Skeleton.StatRow count={4} />}
@@ -831,6 +842,248 @@ export function DashboardPage() {
     </>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Quick Actions panel                                                 */
+/* ------------------------------------------------------------------ */
+
+interface QuickAction {
+  to?: string;
+  onClick?: () => void;
+  icon: IconName;
+  label: string;
+  sub: string;
+  tint: "orange" | "mint" | "sky" | "wheat" | "rose" | "mustard";
+  badge?: number;
+  external?: boolean;
+}
+
+function QuickActions(props: {
+  canManageAttendance: boolean;
+  canManageFees: boolean;
+  canCreateVouchers: boolean;
+  canManageAdmissions: boolean;
+  canPunch: boolean;
+  pendingApprovals: number;
+}) {
+  const openSpotlight = useOpenSpotlight();
+
+  const actions: QuickAction[] = [];
+
+  if (props.canManageAttendance) {
+    actions.push({
+      to: "/attendance",
+      icon: "attendance",
+      label: "Take attendance",
+      sub: "Today's roster",
+      tint: "sky",
+    });
+  }
+  if (props.canManageFees) {
+    actions.push({
+      to: "/fee-ledger",
+      icon: "rupee",
+      label: "Record payment",
+      sub: "Cash, UPI, online",
+      tint: "mint",
+    });
+  }
+  if (props.canCreateVouchers) {
+    actions.push({
+      to: "/vouchers/new",
+      icon: "vouchers",
+      label: "Raise voucher",
+      sub: "Expense or salary",
+      tint: "rose",
+    });
+  }
+  if (props.canManageAdmissions) {
+    actions.push({
+      to: "/admissions/new",
+      icon: "admissions",
+      label: "Log enquiry",
+      sub: "New admission lead",
+      tint: "wheat",
+    });
+  }
+  if (props.pendingApprovals > 0) {
+    actions.push({
+      to: "/approvals",
+      icon: "approvals",
+      label: "Review approvals",
+      sub: "Edit requests · vouchers · leaves",
+      tint: "orange",
+      badge: props.pendingApprovals,
+    });
+  }
+  if (props.canPunch) {
+    actions.push({
+      to: "/punch",
+      icon: "punch",
+      label: "Punch in / out",
+      sub: "Mark your shift",
+      tint: "mustard",
+    });
+  }
+  // Always-available — search is universal.
+  actions.push({
+    onClick: openSpotlight,
+    icon: "search",
+    label: "Search anything",
+    sub: "Cmd K · students, vouchers…",
+    tint: "orange",
+  });
+
+  if (actions.length === 0) return null;
+
+  return (
+    <div className="card qa-card" style={{ padding: 18 }}>
+      <div className="qa-card__head">
+        <div>
+          <div className="label">QUICK ACTIONS</div>
+          <div className="qa-card__title">
+            What would you like to do?<BrandDot />
+          </div>
+        </div>
+        <span className="muted body-s" style={{ fontSize: 11 }}>
+          Permission-aware · {actions.length} option{actions.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      <div className="qa-grid">
+        {actions.map((a) => (
+          <QuickActionCard key={a.label} action={a} />
+        ))}
+      </div>
+
+      <style>{QA_CSS}</style>
+    </div>
+  );
+}
+
+function QuickActionCard({ action }: { action: QuickAction }) {
+  const inner = (
+    <>
+      <span className={`qa-tile__icon qa-tile__icon--${action.tint}`}>
+        <Icon name={action.icon} size={18} />
+      </span>
+      <span className="qa-tile__body">
+        <span className="qa-tile__label">{action.label}</span>
+        <span className="qa-tile__sub">{action.sub}</span>
+      </span>
+      {action.badge && action.badge > 0 && (
+        <span className="qa-tile__badge">{action.badge.toLocaleString("en-IN")}</span>
+      )}
+      <span className="qa-tile__chev" aria-hidden="true">
+        <Icon name="chev-right" size={14} />
+      </span>
+    </>
+  );
+
+  if (action.to) {
+    return (
+      <Link to={action.to} className="qa-tile" style={{ textDecoration: "none", color: "inherit" }}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" className="qa-tile" onClick={action.onClick}>
+      {inner}
+    </button>
+  );
+}
+
+const QA_CSS = `
+  .qa-card { overflow: hidden; }
+  .qa-card__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .qa-card__title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 17px;
+    margin-top: 4px;
+    color: var(--ink);
+  }
+  .qa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .qa-tile {
+    display: grid;
+    grid-template-columns: 38px 1fr auto 16px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--cream-soft);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    cursor: pointer;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+    width: 100%;
+  }
+  .qa-tile:hover {
+    background: var(--white);
+    border-color: var(--orange);
+    box-shadow: 0 4px 14px rgba(242, 92, 25, 0.10);
+    transform: translateY(-1px);
+  }
+  .qa-tile:active { transform: translateY(0); }
+
+  .qa-tile__icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .qa-tile__icon--orange  { background: var(--orange);       color: #fff; }
+  .qa-tile__icon--mint    { background: var(--tint-mint);    color: var(--tint-mint-deep); }
+  .qa-tile__icon--sky     { background: var(--tint-sky);     color: var(--tint-sky-deep); }
+  .qa-tile__icon--wheat   { background: var(--tint-wheat);   color: var(--tint-wheat-deep); }
+  .qa-tile__icon--rose    { background: var(--tint-rose);    color: var(--tint-rose-deep); }
+  .qa-tile__icon--mustard { background: var(--tint-mustard); color: var(--tint-mustard-deep); }
+
+  .qa-tile__body {
+    display: flex; flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+  }
+  .qa-tile__label {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qa-tile__sub {
+    font-size: 11.5px;
+    color: var(--ink-60);
+    margin-top: 1px;
+  }
+
+  .qa-tile__badge {
+    background: var(--orange);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    line-height: 1.4;
+  }
+  .qa-tile__chev { color: var(--ink-40); }
+`;
 
 function CapacityBar({ label, count, capacity, color }: { label: string; count: number; capacity: number; color: string }) {
   const pct = capacity > 0 ? Math.min(100, Math.round((count / capacity) * 100)) : 0;
