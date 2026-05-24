@@ -10,6 +10,7 @@ import {
 } from "./hooks";
 import { QueryError } from "@/components/QueryError";
 import { Anim } from "@/components/Anim";
+import { AnimPopup } from "@/components/AnimPopup";
 import { useAuth } from "@/lib/auth-store";
 import { getErrorMessage } from "@/lib/api";
 import type { TimetablePeriod } from "@crestly/shared";
@@ -84,12 +85,12 @@ export function PeriodsPage() {
         }
       />
 
-      {flash && (
-        <div className="banner banner--success" style={{ alignItems: "center" }}>
-          <Anim name="success" size={36} />
-          <span>{flash}</span>
-        </div>
-      )}
+      <AnimPopup
+        open={!!flash}
+        type="success"
+        message={flash ?? ""}
+        onClose={() => setFlash(null)}
+      />
 
       <QueryError error={error} refetch={refetch} isFetching={isFetching} label="periods" />
 
