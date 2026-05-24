@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Icon } from "@crestly/icons";
 import { getErrorMessage } from "@/lib/api";
 
@@ -25,15 +26,39 @@ export function QueryError({
   /** Optional context, e.g. "periods" → "Couldn't load periods." */
   label?: string;
 }) {
+  // Auto-retry on dev-only "api still booting" errors so the user doesn't
+  // have to click Retry once the API process finally comes up. Kept inside
+  // the hook chain (always called) so React doesn't complain when error
+  // toggles between truthy/falsy. Ref tracks the current timer.
+  const timerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!error || !refetch) return;
+    const msg = getErrorMessage(error, "");
+    const isBoot = /api server still booting|api_starting|ECONNREFUSED/i.test(msg);
+    if (!isBoot) return;
+    timerRef.current = window.setInterval(() => {
+      if (!isFetching) refetch();
+    }, 3000);
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    };
+  }, [error, refetch, isFetching]);
+
   if (!error) return null;
   const detail = getErrorMessage(error, "");
-  const head = label ? `Couldn't load ${label}.` : "Couldn't load.";
+  const isBoot = /api server still booting|api_starting|ECONNREFUSED/i.test(detail);
+  const head = isBoot
+    ? "Waiting for the API…"
+    : label ? `Couldn't load ${label}.` : "Couldn't load.";
   return (
-    <div className="banner banner--error" role="alert">
-      <Icon name="alert" size={16} />
+    <div className={`banner ${isBoot ? "banner--info" : "banner--error"}`} role="alert">
+      <Icon name={isBoot ? "info" : "alert"} size={16} />
       <span>
         <b>{head}</b>
-        {detail && <> {detail}</>}
+        {isBoot
+          ? <> Auto-retrying every 3s. You don't need to do anything.</>
+          : detail && <> {detail}</>}
       </span>
       {refetch && (
         <button
@@ -43,7 +68,7 @@ export function QueryError({
           onClick={() => refetch()}
           disabled={!!isFetching}
         >
-          {isFetching ? "Retrying…" : "Retry"}
+          {isFetching ? "Retrying…" : "Retry now"}
         </button>
       )}
     </div>
