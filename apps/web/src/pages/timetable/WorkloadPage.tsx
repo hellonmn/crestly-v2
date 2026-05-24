@@ -2,10 +2,11 @@ import { Link } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { StatTile } from "@/components/StatTile";
+import { QueryError } from "@/components/QueryError";
 import { useWorkload } from "./hooks";
 
 export function WorkloadPage() {
-  const { data, isLoading } = useWorkload();
+  const { data, isLoading, error, refetch, isFetching } = useWorkload();
   const totals = data
     ? {
         teachers: data.length,
@@ -27,6 +28,8 @@ export function WorkloadPage() {
           </Link>
         }
       />
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="workload" />
 
       <div className="grid grid--cols-4 grid--gap-sm">
         <StatTile tint="mustard" icon="team" label="TEACHERS" value={String(totals.teachers)} delta="active" />

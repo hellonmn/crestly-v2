@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "@crestly/icons";
 import { PageHead } from "@/components/PageHead";
 import { Modal } from "@/components/Modal";
+import { QueryError } from "@/components/QueryError";
 import {
   useClearCell, useEligibleTeachers, useSaveCell, useSmartAllot, useTimetable,
 } from "./hooks";
@@ -121,7 +122,7 @@ export function TimetablePage() {
     ? (effectiveTeacherId ? { teacherUserId: effectiveTeacherId } : null)
     : (classSlug && section ? { class: classSlug, section } : null);
 
-  const { data, isLoading } = useTimetable(query);
+  const { data, isLoading, error, refetch, isFetching } = useTimetable(query);
 
   /* Editor state */
   const [editing, setEditing] = useState<{ period: TimetablePeriod; day: number; cell: TimetableCell | null } | null>(null);
@@ -164,6 +165,8 @@ export function TimetablePage() {
           <Icon name="check" size={16} /><span>{flash}</span>
         </div>
       )}
+
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="timetable" />
 
       {noPeriods && (
         <div className="banner banner--warn">

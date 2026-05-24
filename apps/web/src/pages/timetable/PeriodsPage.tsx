@@ -8,6 +8,7 @@ import { BrandDot } from "@/components/BrandDot";
 import {
   useDeletePeriod, useSavePeriod, useTimetablePeriods,
 } from "./hooks";
+import { QueryError } from "@/components/QueryError";
 import { useAuth } from "@/lib/auth-store";
 import { getErrorMessage } from "@/lib/api";
 import type { TimetablePeriod } from "@crestly/shared";
@@ -43,7 +44,8 @@ function fmtMinutes(mins: number): string {
 export function PeriodsPage() {
   const { user } = useAuth();
   const canManage = (user?.permissions ?? []).includes("timetable.manage");
-  const { data: periods, isLoading } = useTimetablePeriods();
+  const periodsQuery = useTimetablePeriods();
+  const { data: periods, isLoading, error, refetch, isFetching } = periodsQuery;
 
   const [editing, setEditing] = useState<TimetablePeriod | "new" | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -87,6 +89,8 @@ export function PeriodsPage() {
         </div>
       )}
 
+      <QueryError error={error} refetch={refetch} isFetching={isFetching} label="periods" />
+
       {/* Stat tiles */}
       <div className="grid grid--cols-4 grid--gap-sm">
         <Tile tint="mint" label="TOTAL PERIODS" value={String(total)} delta={`${teaching} teaching`} />
@@ -108,11 +112,17 @@ export function PeriodsPage() {
 
         {isLoading ? (
           <div style={{ padding: 16 }}><Skeleton.Table rows={6} cols={5} /></div>
+        ) : error ? (
+          <div style={{ padding: "40px 24px", textAlign: "center" }}>
+            <div className="muted body-s">
+              Couldn't load periods. Use the Retry link in the banner above.
+            </div>
+          </div>
         ) : total === 0 ? (
           <div style={{ padding: "40px 24px", textAlign: "center" }}>
             <div className="label" style={{ marginBottom: 8 }}>NO PERIODS</div>
             <div className="muted body-s">
-              No periods configured yet.
+              No periods configured for the current academic session.
               {canManage && (
                 <>
                   {" "}
@@ -121,6 +131,9 @@ export function PeriodsPage() {
                   </button>
                 </>
               )}
+            </div>
+            <div className="muted body-s" style={{ marginTop: 12, fontSize: 11 }}>
+              Periods are tied to the active session. If you've added them under a different session, switch it from the sidebar.
             </div>
           </div>
         ) : (
