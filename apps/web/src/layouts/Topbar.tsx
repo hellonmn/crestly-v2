@@ -29,9 +29,14 @@ export function Topbar({ schoolName }: { schoolName: string }) {
         </span>
         <span className="tb-brand__txt">
           <span className="tb-brand__name">
-            Crestly<BrandDot />
+            {schoolName}
+            <BrandDot />
           </span>
-          <span className="tb-brand__sub">{schoolName}</span>
+          {/* Sub-line only when the school name isn't already "Crestly" —
+              otherwise it just duplicates the brand and looks redundant. */}
+          {schoolName.toLowerCase() !== "crestly" && (
+            <span className="tb-brand__sub">School ERP</span>
+          )}
         </span>
       </Link>
 
@@ -371,7 +376,8 @@ const TOPBAR_CSS = `
     line-height: 1.15;
     text-align: left;
   }
-  .topbar--rich .tb-prof__name {
+  /* Inside the dark profile button — cream so it shows against ink. */
+  .topbar--rich .tb-prof__btn .tb-prof__name {
     font-weight: 700;
     font-size: 13px;
     color: var(--cream);
@@ -380,10 +386,28 @@ const TOPBAR_CSS = `
     text-overflow: ellipsis;
     max-width: 160px;
   }
-  .topbar--rich .tb-prof__role {
+  .topbar--rich .tb-prof__btn .tb-prof__role {
     font-family: var(--font-mono);
     font-size: 10px;
     color: var(--cream-deep);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  /* Inside the white dropdown menu — ink so it shows against white. */
+  .topbar--rich .tb-prof__menu-head .tb-prof__name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+  .topbar--rich .tb-prof__menu-head .tb-prof__role {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-60);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin-top: 2px;
