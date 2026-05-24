@@ -9,6 +9,7 @@ import {
   useDeletePeriod, useSavePeriod, useTimetablePeriods,
 } from "./hooks";
 import { QueryError } from "@/components/QueryError";
+import { Anim } from "@/components/Anim";
 import { useAuth } from "@/lib/auth-store";
 import { getErrorMessage } from "@/lib/api";
 import type { TimetablePeriod } from "@crestly/shared";
@@ -84,8 +85,9 @@ export function PeriodsPage() {
       />
 
       {flash && (
-        <div className="banner banner--success">
-          <Icon name="check" size={16} /><span>{flash}</span>
+        <div className="banner banner--success" style={{ alignItems: "center" }}>
+          <Anim name="success" size={36} />
+          <span>{flash}</span>
         </div>
       )}
 
@@ -124,7 +126,8 @@ export function PeriodsPage() {
           </div>
         ) : total === 0 ? (
           <div style={{ padding: "40px 24px", textAlign: "center" }}>
-            <div className="label" style={{ marginBottom: 8 }}>NO PERIODS</div>
+            <Anim name="empty" size={180} />
+            <div className="label" style={{ marginBottom: 8, marginTop: 4 }}>NO PERIODS</div>
             <div className="muted body-s">
               No periods configured for the current academic session.
               {canManage && (
