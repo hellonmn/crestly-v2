@@ -45,6 +45,7 @@ import { ReceiptPrintPage } from "@/pages/fee-ledger/ReceiptPrintPage";
 import { FeeStructurePage } from "@/pages/fee-structure/FeeStructurePage";
 import { DiaryPage } from "@/pages/diary/DiaryPage";
 import { TimetablePage } from "@/pages/timetable/TimetablePage";
+import { PeriodsPage } from "@/pages/timetable/PeriodsPage";
 import { WorkloadPage } from "@/pages/timetable/WorkloadPage";
 import { DailyReportPage } from "@/pages/daily-report/DailyReportPage";
 import { NotificationsPage } from "@/pages/notifications/NotificationsPage";
@@ -187,6 +188,7 @@ export function App() {
         <Route path="diary" element={<DiaryPage />} />
 
         <Route path="timetable" element={<TimetablePage />} />
+        <Route path="timetable/periods" element={<PeriodsPage />} />
         <Route path="timetable/workload" element={<WorkloadPage />} />
 
         <Route path="daily-report" element={<DailyReportPage />} />
