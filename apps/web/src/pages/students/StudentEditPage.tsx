@@ -185,7 +185,14 @@ export function StudentEditPage() {
                   className="input"
                   type="number"
                   inputMode="numeric"
-                  {...form.register("srNumber", { valueAsNumber: true })}
+                  // setValueAs (not valueAsNumber) so an empty string becomes
+                  // `undefined` — letting the schema's .optional() pass —
+                  // instead of `NaN`, which Zod rejects with the unfriendly
+                  // "Expected number, received nan" message.
+                  {...form.register("srNumber", {
+                    setValueAs: (v) =>
+                      v === "" || v === null || v === undefined ? undefined : Number(v),
+                  })}
                 />
               </Field>
             )}

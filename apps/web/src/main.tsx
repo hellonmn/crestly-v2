@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { registerCrestlySW } from "@/lib/pwa-register";
+import { installFriendlyZod } from "@/lib/zod-friendly";
+
+// Swap Zod's developer-y default messages ("Expected number, received nan")
+// for plain-English copy ("Must be a number") before any form schema fires.
+installFriendlyZod();
 
 // Crestly Design System — must load BEFORE the app so components
 // can rely on the CSS variables and class names being available.
