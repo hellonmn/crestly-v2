@@ -1,14 +1,39 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { RequestPrismaService } from "../prisma/request-prisma.service";
+import { TenantService } from "../tenant/tenant.service";
 import type { ParentLoginInput, ParentLoginResponse, ParentKid } from "@crestly/shared";
 
+/**
+ * Parent portal queries run against the platform DB (which, in single-
+ * tenant deployments, IS the school's DB). We deliberately don't use
+ * RequestPrismaService — parents have no JWT at the login endpoint, so
+ * the request has no tenant context.
+ *
+ * In a future multi-tenant world the parent login flow will need a
+ * subdomain or query param to pick the right tenant DB; for now every
+ * parent in this deployment maps to the platform DB.
+ */
 @Injectable()
 export class ParentService {
   constructor(
-    private readonly prisma: RequestPrismaService,
+    private readonly tenants: TenantService,
     private readonly jwt: JwtService,
   ) {}
+
+  private get db() { return this.tenants.platform; }
+
+  /** Public — returns just the school name for the login page header. */
+  async schoolInfo(): Promise<{ name: string }> {
+    try {
+      const row = await this.db.$queryRawUnsafe<{ v: string }[]>(
+        "SELECT v FROM school_info WHERE k = 'School Name' LIMIT 1",
+      );
+      const name = row[0]?.v?.trim();
+      return { name: name || "School" };
+    } catch {
+      return { name: "School" };
+    }
+  }
 
   /** Mirrors erp/parent/lib/auth.php :: parent_login() exactly:
    *  match phone (last 10 digits) against ANY of the 7 parent-contact
@@ -27,7 +52,7 @@ export class ParentService {
     // Raw SQL — Prisma's string filters can't easily strip non-digits + take
     // the rightmost 10 chars across multiple columns. The PHP version uses
     // RIGHT(REGEXP_REPLACE(..., '[^0-9]', ''), 10) so we mirror that.
-    const rows = await this.prisma.db.$queryRawUnsafe<{
+    const rows = await this.db.$queryRawUnsafe<{
       sr_number: number;
       student_name: string;
       class: string;
@@ -67,7 +92,7 @@ export class ParentService {
     const familyId = hit.family_id;
     let kids: ParentKid[];
     if (familyId) {
-      const siblings = await this.prisma.db.student.findMany({
+      const siblings = await this.db.student.findMany({
         where: { familyId, status: "active" },
         select: {
           srNumber: true, studentName: true, class: true, section: true,

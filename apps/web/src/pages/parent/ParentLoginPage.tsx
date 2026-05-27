@@ -31,14 +31,16 @@ export function ParentLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy]   = useState(false);
 
-  /* School name for the page header — read from the existing public
-     school-info endpoint so a parent sees their school, not just "Crestly". */
+  /* School name for the page header — the parent has no token yet, so we
+     hit the dedicated public /parent/school-info route (not the auth-
+     gated admin /school-info). */
   const { data: school } = useQuery({
-    queryKey: ["school-info", "public"],
+    queryKey: ["parent-school-info"],
     staleTime: 5 * 60_000,
-    queryFn: async () => (await api.get<{ schoolName?: string }>("/school-info")).data,
+    retry: false,                  // don't retry on the login page
+    queryFn: async () => (await api.get<{ name: string }>("/parent/school-info")).data,
   });
-  const schoolName = school?.schoolName?.trim() || "School";
+  const schoolName = school?.name?.trim() || "School";
 
   if (token) {
     // Already logged in — bounce to the parent home (will exist in a
