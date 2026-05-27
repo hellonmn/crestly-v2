@@ -87,11 +87,17 @@ export class ParentService {
       );
     }
 
+    // $queryRawUnsafe surfaces MySQL UNSIGNED INT columns as BigInt,
+    // which the JWT signer (and JSON.stringify in general) can't handle.
+    // Coerce to Number explicitly before anything downstream touches them.
+    const hitSr       = Number(hit.sr_number);
+    const familyId    = hit.family_id != null ? Number(hit.family_id) : null;
+    const hitIsHostel = Number(hit.is_hostel) === 1;
+
     // Expand to siblings if the family_id is set; otherwise it's just
     // this one child.
-    const familyId = hit.family_id;
     let kids: ParentKid[];
-    if (familyId) {
+    if (familyId !== null) {
       const siblings = await this.db.student.findMany({
         where: { familyId, status: "active" },
         select: {
@@ -101,7 +107,7 @@ export class ParentService {
         orderBy: { srNumber: "asc" },
       });
       kids = siblings.map((s) => ({
-        srNumber: s.srNumber,
+        srNumber: Number(s.srNumber),
         studentName: s.studentName,
         classLabel: `${s.class}-${s.section}`,
         dob: s.dob ? s.dob.toISOString().slice(0, 10) : null,
@@ -109,11 +115,11 @@ export class ParentService {
       }));
     } else {
       kids = [{
-        srNumber: hit.sr_number,
+        srNumber: hitSr,
         studentName: hit.student_name,
         classLabel: `${hit.class}-${hit.section}`,
         dob: hit.dob ? hit.dob.toISOString().slice(0, 10) : null,
-        isHostel: hit.is_hostel === 1,
+        isHostel: hitIsHostel,
       }];
     }
 
