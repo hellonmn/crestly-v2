@@ -43,6 +43,7 @@ import { SuperadminModule } from "./superadmin/superadmin.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { SearchModule } from "./search/search.module";
 import { PaymentsModule } from "./payments/payments.module";
+import { ParentModule } from "./parent/parent.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 
 @Module({
@@ -90,6 +91,7 @@ import { JwtAuthGuard } from "./auth/jwt-auth.guard";
     AiModule,
     SearchModule,
     PaymentsModule,
+    ParentModule,
     FeaturesModule,
     SuperadminModule,
     DashboardModule,

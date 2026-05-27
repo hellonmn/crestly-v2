@@ -65,6 +65,9 @@ import { MarksheetPrintPage } from "@/pages/exams/MarksheetPrintPage";
 
 // Parent-facing payment result pages (no auth, no AppShell)
 import { PaySuccessPage, PayFailurePage } from "@/pages/pay/PayResultPage";
+
+// Parent portal — its own auth flow, separate from admin/staff
+import { ParentLoginPage } from "@/pages/parent/ParentLoginPage";
 import { PromotionPage } from "@/pages/promotion/PromotionPage";
 import { AdmissionsListPage } from "@/pages/admissions/AdmissionsListPage";
 import { EnquiryViewPage } from "@/pages/admissions/EnquiryViewPage";
@@ -131,6 +134,9 @@ export function App() {
           HDFC's return URL redirects here after a checkout. */}
       <Route path="/pay/success" element={<PaySuccessPage />} />
       <Route path="/pay/failure" element={<PayFailurePage />} />
+
+      {/* Parent portal — public login, separate auth from the staff side. */}
+      <Route path="/parent/login" element={<ParentLoginPage />} />
 
       <Route
         path="/"

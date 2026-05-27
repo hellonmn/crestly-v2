@@ -12,6 +12,14 @@
 export { LoginInputSchema, LoginResponseSchema } from "./auth";
 export type { LoginInput, LoginResponse, CurrentUser } from "./auth";
 
+// --- parent portal ---
+export {
+  ParentLoginInputSchema, ParentKidSchema, ParentLoginResponseSchema,
+} from "./parent";
+export type {
+  ParentLoginInput, ParentKid, ParentLoginResponse,
+} from "./parent";
+
 // --- ai assistant ---
 export {
   AI_PROVIDERS, GROQ_MODELS,
