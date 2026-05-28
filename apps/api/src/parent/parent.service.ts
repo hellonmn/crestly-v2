@@ -300,12 +300,19 @@ export class ParentService {
     const marks = subjectIds.length > 0 && termIds.length > 0
       ? await this.db.exam_marks.findMany({
           where: { sr_number: sr, subject_id: { in: subjectIds }, term_id: { in: termIds } },
-          select: { subject_id: true, term_id: true, marks_obtained: true, max_marks: true },
+          select: { subject_id: true, term_id: true, marks_obtained: true },
         })
       : [];
+    // Per-term max marks comes from exam_terms.default_max_marks (the
+    // per-class-per-subject override on exam_datesheet would be more
+    // accurate but it's not always populated; this matches the PHP
+    // marksheet helper closely enough).
+    const maxByTerm = new Map(terms.map((t) => [t.id, t.default_max_marks ?? 100]));
     const markBy = new Map<string, { pct: number }>();
     for (const m of marks) {
-      const pct = m.max_marks > 0 ? (m.marks_obtained / m.max_marks) * 100 : 0;
+      const obtained = m.marks_obtained != null ? Number(m.marks_obtained) : 0;
+      const max = maxByTerm.get(m.term_id) ?? 100;
+      const pct = max > 0 ? (obtained / max) * 100 : 0;
       markBy.set(`${m.subject_id}|${m.term_id}`, { pct });
     }
 
@@ -318,7 +325,7 @@ export class ParentService {
         const got = markBy.get(`${sub.id}|${t.id}`);
         if (!got) continue;
         hasAny = true;
-        const w = t.weight_percent ?? 0;
+        const w = Number(t.weight_percent ?? 0);
         weighted += got.pct * w;
         totalWeight += w;
       }
@@ -344,7 +351,7 @@ export class ParentService {
         id: t.id,
         name: t.name,
         shortCode: t.short_code,
-        weightPercent: t.weight_percent ?? 0,
+        weightPercent: Number(t.weight_percent ?? 0),
         pct: hasAny && totalWeight > 0 ? Math.round((weighted / totalWeight) * 10) / 10 : null,
       };
     });
@@ -445,7 +452,7 @@ export class ParentService {
         session_code: sessionCode,
         class_slug: classSlug,
         section_code: sectionCode,
-        entry_date: day,
+        diary_date: day,
       },
       include: {
         timetable_periods: { select: { name: true, start_time: true, end_time: true } },
@@ -469,12 +476,12 @@ export class ParentService {
     // Recent dates with entries (last 7 distinct)
     const recent = await this.db.class_diary.findMany({
       where: { session_code: sessionCode, class_slug: classSlug, section_code: sectionCode },
-      orderBy: { entry_date: "desc" },
-      distinct: ["entry_date"],
+      orderBy: { diary_date: "desc" },
+      distinct: ["diary_date"],
       take: 7,
-      select: { entry_date: true },
+      select: { diary_date: true },
     });
-    const recentDates = recent.map((r) => r.entry_date.toISOString().slice(0, 10));
+    const recentDates = recent.map((r) => r.diary_date.toISOString().slice(0, 10));
 
     return { srNumber: sr, date, classLabel, entries, recentDates };
   }
