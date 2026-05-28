@@ -69,6 +69,14 @@ import { PaySuccessPage, PayFailurePage } from "@/pages/pay/PayResultPage";
 // Parent portal — its own auth flow, separate from admin/staff
 import { ParentLoginPage } from "@/pages/parent/ParentLoginPage";
 import { ParentHomePage } from "@/pages/parent/ParentHomePage";
+import { ParentShell } from "@/pages/parent/_layout/ParentShell";
+import { ParentAttendancePage } from "@/pages/parent/ParentAttendancePage";
+import { ParentExamsPage } from "@/pages/parent/ParentExamsPage";
+import { ParentFeesPage } from "@/pages/parent/ParentFeesPage";
+import { ParentDiaryPage } from "@/pages/parent/ParentDiaryPage";
+import { ParentTimetablePage } from "@/pages/parent/ParentTimetablePage";
+import { ParentContactPage } from "@/pages/parent/ParentContactPage";
+import { ParentMorePage } from "@/pages/parent/ParentMorePage";
 import { PromotionPage } from "@/pages/promotion/PromotionPage";
 import { AdmissionsListPage } from "@/pages/admissions/AdmissionsListPage";
 import { EnquiryViewPage } from "@/pages/admissions/EnquiryViewPage";
@@ -136,12 +144,20 @@ export function App() {
       <Route path="/pay/success" element={<PaySuccessPage />} />
       <Route path="/pay/failure" element={<PayFailurePage />} />
 
-      {/* Parent portal — public login + private home, separate auth from
-          the staff side. Both routes sit OUTSIDE the AppShell wrapper so
-          parents don't see the staff sidebar / topbar. */}
-      <Route path="/parent" element={<ParentHomePage />} />
-      <Route path="/parent/" element={<ParentHomePage />} />
+      {/* Parent portal — public login, then all child pages mounted under
+          ParentShell (topbar + bottom nav). Separate auth from the staff
+          side; ParentShell bounces unauthenticated visitors back to login. */}
       <Route path="/parent/login" element={<ParentLoginPage />} />
+      <Route path="/parent" element={<ParentShell />}>
+        <Route index               element={<ParentHomePage />} />
+        <Route path="attendance"   element={<ParentAttendancePage />} />
+        <Route path="exams"        element={<ParentExamsPage />} />
+        <Route path="fees"         element={<ParentFeesPage />} />
+        <Route path="diary"        element={<ParentDiaryPage />} />
+        <Route path="timetable"    element={<ParentTimetablePage />} />
+        <Route path="contact"      element={<ParentContactPage />} />
+        <Route path="more"         element={<ParentMorePage />} />
+      </Route>
 
       <Route
         path="/"

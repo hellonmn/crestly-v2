@@ -15,9 +15,16 @@ export type { LoginInput, LoginResponse, CurrentUser } from "./auth";
 // --- parent portal ---
 export {
   ParentLoginInputSchema, ParentKidSchema, ParentLoginResponseSchema,
+  ParentAttendanceMonthSchema, ParentExamsResponseSchema,
+  ParentFeesResponseSchema, ParentDiaryEntrySchema, ParentDiaryResponseSchema,
+  ParentTimetableCellSchema, ParentTimetableResponseSchema,
+  ParentContactStaffSchema, ParentContactResponseSchema, ParentMoreInfoSchema,
 } from "./parent";
 export type {
   ParentLoginInput, ParentKid, ParentLoginResponse,
+  ParentAttendanceMonth, ParentExamsResponse, ParentFeesResponse,
+  ParentDiaryEntry, ParentDiaryResponse, ParentTimetableResponse,
+  ParentContactStaff, ParentContactResponse, ParentMoreInfo,
 } from "./parent";
 
 // --- ai assistant ---
