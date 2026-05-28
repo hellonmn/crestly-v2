@@ -68,6 +68,7 @@ import { PaySuccessPage, PayFailurePage } from "@/pages/pay/PayResultPage";
 
 // Parent portal — its own auth flow, separate from admin/staff
 import { ParentLoginPage } from "@/pages/parent/ParentLoginPage";
+import { ParentHomePage } from "@/pages/parent/ParentHomePage";
 import { PromotionPage } from "@/pages/promotion/PromotionPage";
 import { AdmissionsListPage } from "@/pages/admissions/AdmissionsListPage";
 import { EnquiryViewPage } from "@/pages/admissions/EnquiryViewPage";
@@ -135,7 +136,11 @@ export function App() {
       <Route path="/pay/success" element={<PaySuccessPage />} />
       <Route path="/pay/failure" element={<PayFailurePage />} />
 
-      {/* Parent portal — public login, separate auth from the staff side. */}
+      {/* Parent portal — public login + private home, separate auth from
+          the staff side. Both routes sit OUTSIDE the AppShell wrapper so
+          parents don't see the staff sidebar / topbar. */}
+      <Route path="/parent" element={<ParentHomePage />} />
+      <Route path="/parent/" element={<ParentHomePage />} />
       <Route path="/parent/login" element={<ParentLoginPage />} />
 
       <Route

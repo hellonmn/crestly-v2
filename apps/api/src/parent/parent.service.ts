@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { TenantService } from "../tenant/tenant.service";
 import type { ParentLoginInput, ParentLoginResponse, ParentKid } from "@crestly/shared";
@@ -15,6 +15,8 @@ import type { ParentLoginInput, ParentLoginResponse, ParentKid } from "@crestly/
  */
 @Injectable()
 export class ParentService {
+  private readonly log = new Logger(ParentService.name);
+
   constructor(
     private readonly tenants: TenantService,
     private readonly jwt: JwtService,
@@ -30,15 +32,22 @@ export class ParentService {
       );
       const name = row[0]?.v?.trim();
       return { name: name || "School" };
-    } catch {
+    } catch (e) {
+      this.log.warn(`schoolInfo failed: ${(e as Error).message}`);
       return { name: "School" };
     }
   }
 
-  /** Mirrors erp/parent/lib/auth.php :: parent_login() exactly:
-   *  match phone (last 10 digits) against ANY of the 7 parent-contact
-   *  fields on the student row + DOB; on success, the session unlocks
-   *  every sibling sharing the same family_id. */
+  /**
+   * Two-step parent login (single-tenant for now):
+   *   1. Find students whose DOB matches. Usually 1-3 rows in a school.
+   *   2. In JS, strip non-digits from EVERY contact field of every
+   *      candidate and match the last 10 digits against the input.
+   *
+   * We deliberately skip MySQL's REGEXP_REPLACE — older shared hosts
+   * have spotty regex support, and the DOB-narrowed candidate list is
+   * tiny so the per-row compare is fine.
+   */
   async login(input: ParentLoginInput): Promise<ParentLoginResponse> {
     const phone10 = lastTenDigits(input.phone);
     if (phone10.length !== 10) {
@@ -49,53 +58,53 @@ export class ParentService {
       throw new UnauthorizedException("Enter the date of birth as DDMMYYYY.");
     }
 
-    // Raw SQL — Prisma's string filters can't easily strip non-digits + take
-    // the rightmost 10 chars across multiple columns. The PHP version uses
-    // RIGHT(REGEXP_REPLACE(..., '[^0-9]', ''), 10) so we mirror that.
-    const rows = await this.db.$queryRawUnsafe<{
-      sr_number: number;
-      student_name: string;
-      class: string;
-      section: string;
-      dob: Date | null;
-      family_id: number | null;
-      is_hostel: number;
-    }[]>(
-      `
-      SELECT sr_number, student_name, class, section, dob, family_id, is_hostel
-      FROM students
-      WHERE dob = ?
-        AND status = 'active'
-        AND (
-              RIGHT(REGEXP_REPLACE(IFNULL(father_contact, ''),         '[^0-9]', ''), 10) = ?
-           OR RIGHT(REGEXP_REPLACE(IFNULL(mother_contact, ''),         '[^0-9]', ''), 10) = ?
-           OR RIGHT(REGEXP_REPLACE(IFNULL(father_whatsapp, ''),        '[^0-9]', ''), 10) = ?
-           OR RIGHT(REGEXP_REPLACE(IFNULL(mother_whatsapp, ''),        '[^0-9]', ''), 10) = ?
-           OR RIGHT(REGEXP_REPLACE(IFNULL(calling_number, ''),         '[^0-9]', ''), 10) = ?
-           OR RIGHT(REGEXP_REPLACE(IFNULL(whatsapp_number, ''),        '[^0-9]', ''), 10) = ?
-           OR RIGHT(REGEXP_REPLACE(IFNULL(local_guardian_contact, ''), '[^0-9]', ''), 10) = ?
-        )
-      LIMIT 1
-      `,
-      dobIso, phone10, phone10, phone10, phone10, phone10, phone10, phone10,
-    );
+    // Step 1: candidates by DOB. Cast to plain strings/numbers right away
+    // so BigInt doesn't leak into anything downstream.
+    const candidates = await this.db.student.findMany({
+      where: {
+        dob: new Date(`${dobIso}T00:00:00Z`),
+        status: "active",
+      },
+      select: {
+        srNumber: true, studentName: true, class: true, section: true,
+        familyId: true, dob: true, is_hostel: true,
+        fatherContact: true, motherContact: true,
+        father_whatsapp: true, mother_whatsapp: true,
+        callingNumber: true, whatsappNumber: true,
+        local_guardian_contact: true,
+      },
+    });
 
-    const hit = rows[0];
-    if (!hit) {
+    if (candidates.length === 0) {
+      this.log.log(`parent login miss — no students with dob=${dobIso}`);
       throw new UnauthorizedException(
         "We couldn't find a child with that mobile + date of birth. Check the values, or contact the school office.",
       );
     }
 
-    // $queryRawUnsafe surfaces MySQL UNSIGNED INT columns as BigInt,
-    // which the JWT signer (and JSON.stringify in general) can't handle.
-    // Coerce to Number explicitly before anything downstream touches them.
-    const hitSr       = Number(hit.sr_number);
-    const familyId    = hit.family_id != null ? Number(hit.family_id) : null;
-    const hitIsHostel = Number(hit.is_hostel) === 1;
+    // Step 2: match the phone (last 10 digits) against ANY contact field.
+    const matched = candidates.find((s) => {
+      const phones = [
+        s.fatherContact, s.motherContact,
+        s.father_whatsapp, s.mother_whatsapp,
+        s.callingNumber, s.whatsappNumber,
+        s.local_guardian_contact,
+      ];
+      return phones.some((p) => lastTenDigits(p ?? "") === phone10);
+    });
 
-    // Expand to siblings if the family_id is set; otherwise it's just
-    // this one child.
+    if (!matched) {
+      this.log.log(
+        `parent login miss — phone ${phone10} not in any contact field of ${candidates.length} dob match(es)`,
+      );
+      throw new UnauthorizedException(
+        "We couldn't find a child with that mobile + date of birth. Check the values, or contact the school office.",
+      );
+    }
+
+    const familyId = matched.familyId != null ? Number(matched.familyId) : null;
+
+    // Step 3: expand to siblings via family_id if present.
     let kids: ParentKid[];
     if (familyId !== null) {
       const siblings = await this.db.student.findMany({
@@ -115,11 +124,11 @@ export class ParentService {
       }));
     } else {
       kids = [{
-        srNumber: hitSr,
-        studentName: hit.student_name,
-        classLabel: `${hit.class}-${hit.section}`,
-        dob: hit.dob ? hit.dob.toISOString().slice(0, 10) : null,
-        isHostel: hitIsHostel,
+        srNumber: Number(matched.srNumber),
+        studentName: matched.studentName,
+        classLabel: `${matched.class}-${matched.section}`,
+        dob: matched.dob ? matched.dob.toISOString().slice(0, 10) : null,
+        isHostel: matched.is_hostel,
       }];
     }
 
@@ -135,6 +144,7 @@ export class ParentService {
       ? `+91 ${phone10} · ${kids[0]!.studentName}`
       : `+91 ${phone10} · ${kids.length} children`;
 
+    this.log.log(`parent login ok — phone=${phone10} family=${familyId} kids=${kids.length}`);
     return { accessToken, parentLabel: label, familyId, kids };
   }
 }
